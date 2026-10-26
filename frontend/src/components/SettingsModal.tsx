@@ -27,6 +27,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   }, []);
 
   const handleTestConnection = async () => {
+    if (
+      typeof window !== 'undefined' &&
+      window.location.protocol === 'https:' &&
+      apiBaseUrl.trim().toLowerCase().startsWith('http://')
+    ) {
+      setTestStatus('error');
+      setTestMessage(
+        'Mixed Content Block: This website is loaded over secure HTTPS (Vercel), but the target backend is insecure "http://". Browsers block http requests from https sites. Please use a secure HTTPS tunnel URL (e.g. Cloudflare Tunnel: https://xxxx.trycloudflare.com) or test locally on http://localhost:5173.'
+      );
+      return;
+    }
+
     setTestStatus('testing');
     setTestMessage('Pinging backend API...');
     try {
@@ -37,7 +49,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       setTestMessage(`Connected! Model: ${health.model_loaded ? 'Ready' : 'Offline'}, Camera: ${health.camera_connected ? 'Connected' : 'Offline'}`);
     } catch (err: any) {
       setTestStatus('error');
-      setTestMessage(`Failed: ${err.message || 'Could not connect'}`);
+      if (err.message && err.message.includes('Failed to fetch')) {
+        setTestMessage('Failed to fetch: Backend server is unreachable or offline. Ensure FastAPI is running on port 8000, or verify your HTTPS tunnel URL.');
+      } else {
+        setTestMessage(`Failed: ${err.message || 'Could not connect'}`);
+      }
     }
   };
 
