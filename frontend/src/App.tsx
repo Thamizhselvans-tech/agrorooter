@@ -17,6 +17,11 @@ import {
   PredictionRecord
 } from './types';
 import { api } from './api/client';
+import {
+  savePredictionToFirestore,
+  subscribeToFirestorePredictions,
+  updateRoverTelemetry
+} from './firebase/firestore';
 
 export const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'history' | 'model' | 'settings'>('dashboard');
@@ -47,7 +52,14 @@ export const App: React.FC = () => {
       ]);
 
       if (h.status === 'fulfilled') setHealth(h.value);
-      if (cam.status === 'fulfilled') setCameraStatus(cam.value);
+      if (cam.status === 'fulfilled') {
+        setCameraStatus(cam.value);
+        updateRoverTelemetry({
+          camera_connected: cam.value.connected,
+          camera_streaming: cam.value.streaming,
+          auto_capture: autoCapture,
+        });
+      }
       if (mod.status === 'fulfilled') setModelInfo(mod.value);
       if (hist.status === 'fulfilled') {
         setPredictionHistory(hist.value);
@@ -89,6 +101,20 @@ export const App: React.FC = () => {
     return () => clearInterval(interval);
   }, [fetchSystemStatus]);
 
+  // Real-time Cloud Firestore prediction sync
+  useEffect(() => {
+    const unsubscribe = subscribeToFirestorePredictions((records) => {
+      if (records.length > 0) {
+        setPredictionHistory((prev) => {
+          // If local history is empty, populate with cloud records
+          if (prev.length === 0) return records;
+          return prev;
+        });
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
   // Start Camera Handler
   const handleStartCamera = async () => {
     try {
@@ -122,6 +148,8 @@ export const App: React.FC = () => {
     try {
       const pred = await api.predict();
       setLatestPrediction(pred);
+      // Sync prediction to Cloud Firestore
+      savePredictionToFirestore(pred, 'camera_feed');
       // Refresh history log
       const hist = await api.getPredictions(50);
       setPredictionHistory(hist);
@@ -142,6 +170,8 @@ export const App: React.FC = () => {
     try {
       const pred = await api.predict(file);
       setLatestPrediction(pred);
+      // Sync prediction to Cloud Firestore
+      savePredictionToFirestore(pred, 'manual_upload');
       // Refresh history log
       const hist = await api.getPredictions(50);
       setPredictionHistory(hist);

@@ -8,7 +8,8 @@ import {
   CheckCircle, 
   XCircle, 
   Radio,
-  Layers
+  Layers,
+  Cloud
 } from 'lucide-react';
 import { CameraStatus, ModelInfo, HealthStatus } from '../types';
 
@@ -149,6 +150,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 Offline
               </span>
             )}
+          </div>
+
+          {/* Cloud Firestore status */}
+          <div className="flex items-center justify-between">
+            <span className="text-slate-400 flex items-center gap-1.5">
+              <Cloud className="w-3.5 h-3.5 text-amber-400" />
+              Cloud Firestore
+            </span>
+            <span className="text-emerald-400 flex items-center gap-1 font-medium">
+              <CheckCircle className="w-3 h-3 text-emerald-400" />
+              Active
+            </span>
           </div>
         </div>
 
