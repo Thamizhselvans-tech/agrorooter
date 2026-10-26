@@ -41,7 +41,18 @@ def prune_old_captures():
     except Exception as e:
         pass
 
+@router.get("/predict")
+@router.get("/predict/")
+async def predict_info():
+    """Information endpoint for predict route (avoids 405 on GET)."""
+    return {
+        "status": "active",
+        "method": "POST",
+        "usage": "Send a POST request with multipart/form-data 'file' for image upload, or empty POST for live camera capture."
+    }
+
 @router.post("/predict", response_model=PredictResponse)
+@router.post("/predict/", response_model=PredictResponse)
 async def predict_plant_disease(
     file: Optional[UploadFile] = File(None)
 ):

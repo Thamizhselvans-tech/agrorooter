@@ -211,10 +211,23 @@ export const App: React.FC = () => {
           {/* Global Error Notice if any */}
           {errorMessage && (
             <div className="mx-6 mt-4 p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center justify-between shadow-xs">
-              <span>{errorMessage}</span>
+              <div className="flex items-center gap-2">
+                <span className="font-medium">{errorMessage}</span>
+                {errorMessage.includes('Settings') && (
+                  <button
+                    onClick={() => {
+                      setActiveTab('settings');
+                      setErrorMessage(null);
+                    }}
+                    className="underline font-bold text-rose-900 hover:text-black ml-2"
+                  >
+                    Open Settings ⚙️
+                  </button>
+                )}
+              </div>
               <button
                 onClick={() => setErrorMessage(null)}
-                className="text-rose-600 font-bold hover:underline"
+                className="text-rose-600 font-bold hover:underline shrink-0 ml-4"
               >
                 Dismiss
               </button>

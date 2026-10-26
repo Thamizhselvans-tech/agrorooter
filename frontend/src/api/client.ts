@@ -6,20 +6,40 @@ import {
   PredictionRecord
 } from '../types';
 
-const RAW_API_BASE: string =
-  (import.meta as any).env?.VITE_API_BASE ||
-  (import.meta as any).env?.VITE_API_BASE_URL ||
-  '';
+export function getApiBase(): string {
+  if (typeof window !== 'undefined') {
+    const saved = localStorage.getItem('AGRI_ROVER_API_BASE');
+    if (saved && saved.trim()) {
+      return saved.trim().replace(/\/+$/, '');
+    }
+  }
+  const raw =
+    (import.meta as any).env?.VITE_API_BASE ||
+    (import.meta as any).env?.VITE_API_BASE_URL ||
+    '';
+  return raw.replace(/\/+$/, '');
+}
 
-export const API_BASE = RAW_API_BASE.replace(/\/+$/, '');
+export function setApiBase(url: string): void {
+  if (typeof window !== 'undefined') {
+    if (url && url.trim()) {
+      localStorage.setItem('AGRI_ROVER_API_BASE', url.trim().replace(/\/+$/, ''));
+    } else {
+      localStorage.removeItem('AGRI_ROVER_API_BASE');
+    }
+  }
+}
+
+export const API_BASE = getApiBase();
 const API_KEY: string = (import.meta as any).env?.VITE_API_KEY || '';
 
 function buildUrl(path: string): string {
+  const base = getApiBase();
   const cleanPath = path.startsWith('/') ? path : `/${path}`;
-  if (!API_BASE) {
+  if (!base) {
     return cleanPath;
   }
-  return `${API_BASE}${cleanPath}`;
+  return `${base}${cleanPath}`;
 }
 
 function getHeaders(extraHeaders: Record<string, string> = {}): HeadersInit {
@@ -91,6 +111,11 @@ export const api = {
     }
 
     if (!res.ok) {
+      if (res.status === 405) {
+        throw new Error(
+          "Backend connection required: You are viewing the cloud frontend on Vercel. Because the Python AI model & camera run on your hardware, open Settings (⚙️) to configure your Raspberry Pi / Cloudflare Tunnel URL, or test locally at http://localhost:5173."
+        );
+      }
       const errorData = await res.json().catch(() => null);
       throw new Error(errorData?.detail || `Prediction failed (${res.status}): ${res.statusText}`);
     }
