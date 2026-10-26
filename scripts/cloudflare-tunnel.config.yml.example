@@ -1,0 +1,16 @@
+# Cloudflare Tunnel Configuration Template for Raspberry Pi 4
+# File location on Raspberry Pi: ~/.cloudflared/config.yml or /etc/cloudflared/config.yml
+
+tunnel: <TUNNEL_ID_OR_NAME>
+credentials-file: /home/pi/.cloudflared/<TUNNEL_ID>.json
+
+ingress:
+  # Route API traffic to local FastAPI server on Raspberry Pi
+  - hostname: <YOUR_SUBDOMAIN.YOUR_DOMAIN.COM>
+    service: http://localhost:8000
+    originRequest:
+      connectTimeout: 30s
+      noTLSVerify: false
+
+  # Fallback rule (required by Cloudflare)
+  - service: http_status:404

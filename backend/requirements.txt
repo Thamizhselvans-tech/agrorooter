@@ -1,0 +1,17 @@
+fastapi>=0.100.0
+uvicorn[standard]>=0.22.0
+opencv-python-headless>=4.7.0
+pillow>=9.5.0
+numpy>=1.23.2
+python-multipart>=0.0.6
+python-dotenv>=1.0.0
+
+# TensorFlow Lite Runtime Options:
+# On Raspberry Pi OS:
+#   Option A (Recommended for Pi OS Debian Bookworm / Bullseye):
+#     pip install tflite-runtime
+#   Option B (Modern standalone Google runtime):
+#     pip install ai-edge-litert
+#   Option C (Full TF fallback if needed):
+#     pip install tensorflow
+ai-edge-litert>=2.0.0
