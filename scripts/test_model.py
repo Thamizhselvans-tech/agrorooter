@@ -30,14 +30,15 @@ def run_acceptance_tests():
     # 2. Test Class Labels Count & Output Dimension Compatibility
     print("\n[Test 2] Validating class labels & output dimension compatibility...")
     with open(settings.LABELS_PATH, "r", encoding="utf-8") as f:
-        labels = json.load(f)
+        data = json.load(f)
+    labels = data["class_names"] if isinstance(data, dict) and "class_names" in data else data
     print(f"  Total classes in JSON: {len(labels)}")
-    assert len(labels) == 27, f"Expected 27 classes, got {len(labels)}"
+    assert len(labels) == 29, f"Expected 29 classes, got {len(labels)}"
     
     tomato_classes = [l for l in labels if l.lower().startswith("tomato")]
     print(f"  Total tomato classes: {len(tomato_classes)}")
     assert len(tomato_classes) == 10, f"Expected 10 tomato classes, got {len(tomato_classes)}"
-    print("  PASS: Exactly 27 classes and 10 tomato classes confirmed.")
+    print("  PASS: Exactly 29 classes and 10 tomato classes confirmed.")
 
     # 3. Test Model Loading & Tensor Shapes
     print("\n[Test 3] Validating model loading & tensor shapes...")
@@ -46,8 +47,8 @@ def run_acceptance_tests():
     print(f"  Input Shape: {info['input_shape']}, Dtype: {info['input_dtype']}")
     print(f"  Output Shape: {info['output_shape']}, Dtype: {info['output_dtype']}")
     assert info["input_shape"] == [1, 224, 224, 3], f"Unexpected input shape: {info['input_shape']}"
-    assert info["output_shape"] == [1, 27], f"Unexpected output shape: {info['output_shape']}"
-    print("  PASS: Input is [1, 224, 224, 3] and output is [1, 27] Float32.")
+    assert info["output_shape"] == [1, 29], f"Unexpected output shape: {info['output_shape']}"
+    print("  PASS: Input is [1, 224, 224, 3] and output is [1, 29] Float32.")
 
     # 4. Generate Test Leaf Image & Run Inference
     print("\n[Test 4] Generating synthetic leaf sample and executing inference...")

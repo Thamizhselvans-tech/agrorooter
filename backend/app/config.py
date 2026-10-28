@@ -12,9 +12,12 @@ class Settings:
     APP_VERSION: str = os.getenv("APP_VERSION", "1.0.0")
     DEBUG: bool = os.getenv("DEBUG", "false").lower() in ("true", "1")
     
-    # Model configuration
-    MODEL_PATH: str = os.getenv("MODEL_PATH", str(BASE_DIR / "plant_disease_model" / "plant_disease_model.tflite"))
-    LABELS_PATH: str = os.getenv("LABELS_PATH", str(BASE_DIR / "plant_disease_model" / "class_names.json"))
+    # Model configuration (Fine-tuned MobileNetV2 with 29 classes)
+    _raw_model: str = os.getenv("MODEL_PATH", "plant_disease_model/mobilenetv2_finetuned_best.keras")
+    MODEL_PATH: str = str(BASE_DIR / _raw_model) if not os.path.isabs(_raw_model) else _raw_model
+
+    _raw_labels: str = os.getenv("LABELS_PATH", "plant_disease_model/mobilenetv2_class_names.json")
+    LABELS_PATH: str = str(BASE_DIR / _raw_labels) if not os.path.isabs(_raw_labels) else _raw_labels
     
     # Storage configuration
     CAPTURES_DIR: str = os.getenv("CAPTURES_DIR", str(BASE_DIR / "captures"))

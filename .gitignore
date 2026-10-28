@@ -64,3 +64,9 @@ cert.pem
 Thumbs.db
 *.swp
 *.swo
+
+# Local tools, backups & temporary dumps
+tools/
+*old_backup/
+screenshot.png
+agri-plant-doctor/

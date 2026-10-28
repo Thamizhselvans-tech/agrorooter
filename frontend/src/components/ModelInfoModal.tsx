@@ -105,7 +105,7 @@ export const ModelInfoModal: React.FC<ModelInfoModalProps> = ({ modelInfo }) => 
             <Tag className="w-4 h-4 text-emerald-600" />
             Class Labels Output Index Mapping (class_names.json)
           </h4>
-          <span className="text-xs text-slate-400 font-mono">27 Classes Ordered</span>
+          <span className="text-xs text-slate-400 font-mono">{modelInfo.total_classes} Classes Ordered</span>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 max-h-96 overflow-y-auto pr-1">

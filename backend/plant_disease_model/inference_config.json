@@ -1,0 +1,18 @@
+{
+  "model_file": "mobilenetv2_finetuned_best.keras",
+  "architecture": "MobileNetV2",
+  "input_size": [
+    224,
+    224
+  ],
+  "input_channels": 3,
+  "color_order": "RGB",
+  "input_dtype": "float32",
+  "preprocessing": "tf.keras.applications.mobilenet_v2.preprocess_input",
+  "preprocessed_input_range": [
+    -1.0,
+    1.0
+  ],
+  "output_classes": 29,
+  "prediction_interpretation": "Model output contains class scores/probabilities. Use argmax to select the predicted class and class_names at the same index to obtain its name."
+}
