@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { 
   CheckCircle, 
-  AlertTriangle, 
   ShieldAlert, 
   Clock, 
   Leaf, 
@@ -166,27 +165,6 @@ export const LatestPrediction: React.FC<LatestPredictionProps> = ({
             </span>
           </div>
         </div>
-
-        {/* Tomato-Specific Ranking Section (if predicted class was non-tomato, highlight tomato alternative) */}
-        {!isTomato && prediction.tomato_specific_prediction && (
-          <div className="p-3.5 rounded-xl bg-amber-50/80 border border-amber-200/80 text-xs space-y-1.5">
-            <div className="flex items-center justify-between text-amber-900 font-semibold">
-              <span className="flex items-center gap-1.5">
-                <AlertTriangle className="w-4 h-4 text-amber-600" />
-                Tomato Subset Diagnosis:
-              </span>
-              <span className="font-mono text-amber-700 font-bold">
-                {prediction.tomato_specific_prediction.percentage.toFixed(1)}%
-              </span>
-            </div>
-            <p className="text-amber-800 text-[11px]">
-              The primary model detected a <strong>{prediction.plant}</strong> leaf. Restricting candidate classes to tomato diseases yields highest match:{' '}
-              <strong className="text-amber-950 font-bold">
-                {prediction.tomato_specific_prediction.disease}
-              </strong>.
-            </p>
-          </div>
-        )}
 
         {/* Agricultural Disclaimer Alert */}
         <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-600 text-xs flex items-start gap-2.5">

@@ -2,7 +2,6 @@ import React from 'react';
 import { 
   LayoutDashboard, 
   History, 
-  Cpu, 
   Settings as SettingsIcon, 
   Camera, 
   CheckCircle, 
@@ -14,8 +13,8 @@ import {
 import { CameraStatus, ModelInfo, HealthStatus } from '../types';
 
 interface SidebarProps {
-  activeTab: 'dashboard' | 'history' | 'model' | 'settings';
-  setActiveTab: (tab: 'dashboard' | 'history' | 'model' | 'settings') => void;
+  activeTab: 'dashboard' | 'history' | 'settings';
+  setActiveTab: (tab: 'dashboard' | 'history' | 'settings') => void;
   cameraStatus: CameraStatus | null;
   modelInfo: ModelInfo | null;
   health: HealthStatus | null;
@@ -73,18 +72,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
           >
             <History className="w-4 h-4" />
             <span>Prediction History</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('model')}
-            className={`w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-lg text-sm font-medium transition-all ${
-              activeTab === 'model'
-                ? 'bg-emerald-600 text-white shadow-md shadow-emerald-900/30 font-semibold'
-                : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-            }`}
-          >
-            <Cpu className="w-4 h-4" />
-            <span>Model Information</span>
           </button>
 
           <button

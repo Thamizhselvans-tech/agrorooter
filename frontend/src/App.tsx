@@ -6,7 +6,6 @@ import { LatestPrediction } from './components/LatestPrediction';
 import { TopPredictions } from './components/TopPredictions';
 import { RecentImages } from './components/RecentImages';
 import { PredictionHistory } from './components/PredictionHistory';
-import { ModelInfoModal } from './components/ModelInfoModal';
 import { SettingsModal } from './components/SettingsModal';
 
 import {
@@ -24,7 +23,7 @@ import {
 } from './firebase/firestore';
 
 export const App: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'history' | 'model' | 'settings'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'history' | 'settings'>('dashboard');
 
   // System states
   const [health, setHealth] = useState<HealthStatus | null>(null);
@@ -281,7 +280,6 @@ export const App: React.FC = () => {
               />
             )}
 
-            {activeTab === 'model' && <ModelInfoModal modelInfo={modelInfo} />}
 
             {activeTab === 'settings' && (
               <SettingsModal
