@@ -27,9 +27,14 @@ def init_db():
                 tomato_top_predictions TEXT,
                 image_filename TEXT,
                 image_url TEXT,
+                thumbnail_base64 TEXT,
                 source TEXT DEFAULT 'camera'
             )
         """)
+        cursor.execute("PRAGMA table_info(predictions)")
+        cols = [col[1] for col in cursor.fetchall()]
+        if "thumbnail_base64" not in cols:
+            cursor.execute("ALTER TABLE predictions ADD COLUMN thumbnail_base64 TEXT")
         conn.commit()
     finally:
         conn.close()
@@ -45,6 +50,7 @@ def save_prediction(
     tomato_confidence: Optional[float] = None,
     image_filename: Optional[str] = None,
     image_url: Optional[str] = None,
+    thumbnail_base64: Optional[str] = None,
     source: str = "camera",
     timestamp: Optional[str] = None
 ) -> int:
@@ -58,8 +64,8 @@ def save_prediction(
             INSERT INTO predictions (
                 timestamp, predicted_class, plant, disease, confidence,
                 is_tomato, tomato_confidence, top_predictions, tomato_top_predictions,
-                image_filename, image_url, source
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                image_filename, image_url, thumbnail_base64, source
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             timestamp,
             predicted_class,
@@ -72,6 +78,7 @@ def save_prediction(
             json.dumps(tomato_top_predictions) if tomato_top_predictions else None,
             image_filename,
             image_url,
+            thumbnail_base64,
             source
         ))
         conn.commit()

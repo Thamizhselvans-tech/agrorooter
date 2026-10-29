@@ -144,8 +144,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </div>
           )}
 
-          <div className="flex flex-wrap gap-2 text-[11px] text-slate-500 pt-1">
+          <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-500 pt-1">
             <span>Quick presets:</span>
+            <button
+              type="button"
+              onClick={() => setApiBaseUrl('https://horse-tank-wendy-partners.trycloudflare.com')}
+              className="text-emerald-700 hover:underline font-mono bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 font-semibold"
+            >
+              Live Cloudflare Tunnel
+            </button>
+            <span>•</span>
             <button
               type="button"
               onClick={() => setApiBaseUrl('http://localhost:8000')}

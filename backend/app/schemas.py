@@ -48,6 +48,7 @@ class PredictResponse(BaseModel):
     top_3_tomato_predictions: List[ClassPrediction]
     image_filename: Optional[str] = None
     image_url: Optional[str] = None
+    thumbnail_base64: Optional[str] = None
     timestamp: str
     inference_time_ms: float
     disclaimer: str = (
@@ -68,6 +69,7 @@ class PredictionRecord(BaseModel):
     tomato_top_predictions: Optional[List[Dict[str, Any]]] = None
     image_filename: Optional[str] = None
     image_url: Optional[str] = None
+    thumbnail_base64: Optional[str] = None
     source: str = "camera"
 
 class CameraStatusResponse(BaseModel):

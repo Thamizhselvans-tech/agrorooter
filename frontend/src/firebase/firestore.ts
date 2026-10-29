@@ -40,6 +40,7 @@ export interface FirestorePredictionDoc {
   }[];
   image_url?: string | null;
   image_filename?: string | null;
+  thumbnail_base64?: string | null;
   source: "camera_feed" | "manual_upload" | "auto_capture";
   created_at: any;
   iso_timestamp: string;
@@ -76,6 +77,7 @@ export async function savePredictionToFirestore(
       })),
       image_url: prediction.image_url || null,
       image_filename: prediction.image_filename || null,
+      thumbnail_base64: prediction.thumbnail_base64 || null,
       source,
       created_at: serverTimestamp(),
       iso_timestamp: prediction.timestamp || new Date().toISOString(),
@@ -143,6 +145,7 @@ export function subscribeToFirestorePredictions(
             tomato_top_predictions: tomatoTopPreds,
             image_filename: data.image_filename,
             image_url: data.image_url,
+            thumbnail_base64: data.thumbnail_base64 || null,
             source: data.source || 'camera_feed',
           };
         });

@@ -29,6 +29,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const isCameraOnline = cameraStatus?.connected && cameraStatus?.streaming;
   const isModelReady = modelInfo?.loaded;
+  const isRoverConnected = !!health;
 
   return (
     <aside className="w-64 h-screen sticky top-0 bg-slate-900 text-slate-100 flex flex-col justify-between border-r border-slate-800 shadow-xl shrink-0 overflow-y-auto select-none z-20">
@@ -91,14 +92,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* Hardware & System Status Summary */}
       <div className="p-4 border-t border-slate-800 space-y-3">
         <div className="bg-slate-800/80 rounded-xl p-3.5 border border-slate-700/60 text-xs space-y-2.5">
+          {/* Raspberry Pi Hardware status */}
           <div className="flex items-center justify-between text-slate-300 font-semibold pb-1.5 border-b border-slate-700/50">
             <span className="flex items-center gap-1.5">
-              <Radio className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
+              <Radio className={`w-3.5 h-3.5 ${isRoverConnected ? 'text-emerald-400 animate-pulse' : 'text-slate-500'}`} />
               Raspberry Pi 4
             </span>
-            <span className="text-[10px] text-emerald-400 bg-emerald-950/60 px-1.5 py-0.5 rounded border border-emerald-800/40">
-              {health?.uptime_seconds ? `${Math.floor(health.uptime_seconds / 60)}m up` : 'Online'}
-            </span>
+            {isRoverConnected ? (
+              <span className="text-[10px] text-emerald-400 bg-emerald-950/60 px-1.5 py-0.5 rounded border border-emerald-800/40">
+                {health?.uptime_seconds ? `${Math.floor(health.uptime_seconds / 60)}m up` : 'Online'}
+              </span>
+            ) : (
+              <span className="text-[10px] text-amber-400 bg-amber-950/60 px-1.5 py-0.5 rounded border border-amber-800/40 font-mono">
+                Disconnected
+              </span>
+            )}
           </div>
 
           {/* Camera hardware status */}
@@ -150,6 +158,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
               Active
             </span>
           </div>
+
+          {/* Direct connect button if backend is disconnected */}
+          {!isRoverConnected && (
+            <button
+              onClick={() => setActiveTab('settings')}
+              className="w-full mt-2 pt-2 border-t border-slate-700/50 py-1 px-2 bg-emerald-950/30 hover:bg-emerald-900/40 border border-emerald-700/40 rounded-lg text-[10px] text-emerald-300 font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+            >
+              <SettingsIcon className="w-3 h-3 text-emerald-400" />
+              Connect Rover Backend
+            </button>
+          )}
         </div>
 
         <div className="text-[11px] text-slate-500 text-center font-mono">

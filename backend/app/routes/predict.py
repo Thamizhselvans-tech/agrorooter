@@ -3,6 +3,7 @@ import cv2
 import time
 import asyncio
 import numpy as np
+import base64
 from datetime import datetime
 from typing import Optional, List
 from fastapi import APIRouter, UploadFile, File, HTTPException, Query, status
@@ -109,6 +110,15 @@ async def predict_plant_disease(
         inference_time_ms = round((time.time() - start_time) * 1000.0, 2)
         timestamp_str = datetime.utcnow().isoformat() + "Z"
 
+        # Generate lightweight base64 thumbnail for cloud sync & offline resilience
+        thumbnail_base64 = None
+        try:
+            thumb_img = cv2.resize(img_to_save, (160, 160), interpolation=cv2.INTER_AREA)
+            _, thumb_buf = cv2.imencode('.jpg', thumb_img, [int(cv2.IMWRITE_JPEG_QUALITY), 75])
+            thumbnail_base64 = f"data:image/jpeg;base64,{base64.b64encode(thumb_buf).decode('utf-8')}"
+        except Exception:
+            thumbnail_base64 = None
+
         # Save captured frame to storage
         ts_filename = datetime.utcnow().strftime("capture_%Y%m%d_%H%M%S_%f.jpg")
         save_path = os.path.join(settings.CAPTURES_DIR, ts_filename)
@@ -137,6 +147,7 @@ async def predict_plant_disease(
             tomato_confidence=tomato_conf,
             image_filename=ts_filename,
             image_url=image_url,
+            thumbnail_base64=thumbnail_base64,
             source=source,
             timestamp=timestamp_str
         )
@@ -155,6 +166,7 @@ async def predict_plant_disease(
             top_3_tomato_predictions=[ClassPrediction(**p) for p in top_tomato_preds],
             image_filename=ts_filename,
             image_url=image_url,
+            thumbnail_base64=thumbnail_base64,
             timestamp=timestamp_str,
             inference_time_ms=inference_time_ms
         )

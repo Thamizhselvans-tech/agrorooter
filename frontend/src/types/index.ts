@@ -58,6 +58,7 @@ export interface PredictResponse {
   top_3_tomato_predictions: ClassPrediction[];
   image_filename?: string | null;
   image_url?: string | null;
+  thumbnail_base64?: string | null;
   timestamp: string;
   inference_time_ms: number;
   disclaimer: string;
@@ -76,5 +77,6 @@ export interface PredictionRecord {
   tomato_top_predictions?: ClassPrediction[] | null;
   image_filename?: string | null;
   image_url?: string | null;
+  thumbnail_base64?: string | null;
   source: string;
 }
