@@ -1,74 +1,78 @@
 import React, { useState, useEffect } from 'react';
-import { Settings as SettingsIcon, Sliders, HardDrive, Camera, Save, Check, Globe, RefreshCw, AlertCircle } from 'lucide-react';
-import { CameraStatus, ModelInfo } from '../types';
-import { getApiBase, setApiBase, api } from '../api/client';
+import { 
+  Settings as SettingsIcon, 
+  Sliders, 
+  HardDrive, 
+  Camera, 
+  Save, 
+  Check, 
+  Globe, 
+  RefreshCw, 
+  AlertCircle,
+  Radio,
+  Info
+} from 'lucide-react';
+import { CameraStatus, ModelInfo, SystemConnectionStatus } from '../types';
+import { connectionManager } from '../api/connectionManager';
 
 interface SettingsModalProps {
   captureInterval: number;
   setCaptureInterval: (val: number) => void;
+  systemStatus: SystemConnectionStatus;
   cameraStatus: CameraStatus | null;
   modelInfo: ModelInfo | null;
+  onConnectionUpdated?: () => void;
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
   captureInterval,
   setCaptureInterval,
+  systemStatus,
   cameraStatus,
   modelInfo,
+  onConnectionUpdated,
 }) => {
   const [intervalVal, setIntervalVal] = useState<number>(captureInterval);
   const [apiBaseUrl, setApiBaseUrl] = useState<string>('');
-  const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
+  const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'offline'>('idle');
   const [testMessage, setTestMessage] = useState<string>('');
   const [saved, setSaved] = useState<boolean>(false);
 
   useEffect(() => {
-    setApiBaseUrl(getApiBase());
+    setApiBaseUrl(connectionManager.getApiBase());
   }, []);
 
   const handleTestConnection = async () => {
-    if (
-      typeof window !== 'undefined' &&
-      window.location.protocol === 'https:' &&
-      apiBaseUrl.trim().toLowerCase().startsWith('http://')
-    ) {
-      setTestStatus('error');
-      setTestMessage(
-        'Mixed Content Block: This website is loaded over secure HTTPS (Vercel), but the target backend is insecure "http://". Browsers block http requests from https sites. Please use a secure HTTPS tunnel URL (e.g. Cloudflare Tunnel: https://xxxx.trycloudflare.com) or test locally on http://localhost:5173.'
-      );
-      return;
-    }
-
     setTestStatus('testing');
-    setTestMessage('Pinging backend API...');
-    try {
-      // Temporarily store to test
-      setApiBase(apiBaseUrl);
-      const health = await api.getHealth();
+    setTestMessage('Testing connection to Raspberry Pi backend...');
+
+    const result = await connectionManager.testConnection(apiBaseUrl);
+
+    if (result.success) {
       setTestStatus('success');
-      setTestMessage(`Connected! Model: ${health.model_loaded ? 'Ready' : 'Offline'}, Camera: ${health.camera_connected ? 'Connected' : 'Offline'}`);
-    } catch (err: any) {
-      setTestStatus('error');
-      if (err.message && err.message.includes('Failed to fetch')) {
-        setTestMessage('Failed to fetch: Backend server is unreachable or offline. Ensure FastAPI is running on port 8000, or verify your HTTPS tunnel URL.');
-      } else {
-        setTestMessage(`Failed: ${err.message || 'Could not connect'}`);
-      }
+      setTestMessage(result.message);
+    } else {
+      setTestStatus('offline');
+      setTestMessage(result.message);
     }
   };
 
   const handleSave = () => {
     setCaptureInterval(intervalVal);
-    setApiBase(apiBaseUrl);
+    connectionManager.setApiBase(apiBaseUrl);
     setSaved(true);
+    if (onConnectionUpdated) {
+      onConnectionUpdated();
+    }
     setTimeout(() => {
       setSaved(false);
-      window.location.reload();
-    }, 1200);
+    }, 2500);
   };
 
+  const isRoverConnected = systemStatus.isRoverOnline;
+
   return (
-    <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden p-6 space-y-6 max-w-3xl">
+    <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden p-6 space-y-6 max-w-3xl">
       {/* Header */}
       <div className="flex items-center justify-between pb-4 border-b border-slate-100">
         <div className="flex items-center gap-3">
@@ -77,14 +81,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           </div>
           <div>
             <h3 className="text-lg font-bold text-slate-800">Rover &amp; System Settings</h3>
-            <p className="text-xs text-slate-500">Hardware parameters, inference intervals, and storage limits</p>
+            <p className="text-xs text-slate-500">Hardware parameters, connectivity URLs, and inference intervals</p>
           </div>
         </div>
 
         {saved && (
-          <span className="flex items-center gap-1 text-xs text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-200 font-semibold">
+          <span className="flex items-center gap-1 text-xs text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-200 font-semibold animate-fade-in">
             <Check className="w-3.5 h-3.5 text-emerald-600" />
-            Settings Saved
+            Settings Applied
           </span>
         )}
       </div>
@@ -99,48 +103,62 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 Raspberry Pi / Backend API Base URL
               </h4>
               <p className="text-slate-500 text-xs mt-0.5">
-                Target address of the FastAPI backend running on your Raspberry Pi (or localhost). Required for Vercel cloud deployment.
+                Target address of the FastAPI backend running on your Raspberry Pi (or localhost).
               </p>
             </div>
           </div>
+
+          {/* Informative offline message */}
+          {!isRoverConnected && (
+            <div className="flex items-start gap-2 p-3 bg-slate-100 border border-slate-200/90 rounded-lg text-slate-600 text-xs">
+              <Info className="w-4 h-4 text-slate-500 shrink-0 mt-0.5" />
+              <span>
+                Raspberry Pi is currently offline. Connect your device to enable live disease detection.
+              </span>
+            </div>
+          )}
 
           <div className="flex gap-2">
             <input
               type="text"
               placeholder="e.g. http://localhost:8000 or https://your-tunnel.trycloudflare.com"
               value={apiBaseUrl}
-              onChange={(e) => setApiBaseUrl(e.target.value)}
+              onChange={(e) => {
+                setApiBaseUrl(e.target.value);
+                setTestStatus('idle');
+              }}
               className="flex-1 bg-white border border-slate-300 rounded-lg px-3 py-2 font-mono text-slate-800 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500"
             />
             <button
               type="button"
               onClick={handleTestConnection}
               disabled={testStatus === 'testing'}
-              className="px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-900 text-white font-semibold flex items-center gap-1.5 transition-colors disabled:opacity-50"
+              className="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-900 text-white font-semibold flex items-center gap-1.5 transition-colors disabled:opacity-50 text-xs cursor-pointer"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${testStatus === 'testing' ? 'animate-spin' : ''}`} />
-              Test
+              Test Connection
             </button>
           </div>
 
+          {/* Test Status Feedback - only shown after testing */}
           {testStatus !== 'idle' && (
             <div
-              className={`p-2.5 rounded-lg text-xs flex items-center gap-2 ${
+              className={`p-3 rounded-lg text-xs flex items-start gap-2 transition-all ${
                 testStatus === 'success'
                   ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                  : testStatus === 'error'
-                  ? 'bg-rose-50 text-rose-800 border border-rose-200'
-                  : 'bg-slate-100 text-slate-700'
+                  : testStatus === 'offline'
+                  ? 'bg-slate-100 text-slate-700 border border-slate-200'
+                  : 'bg-slate-100 text-slate-600 border border-slate-200'
               }`}
             >
               {testStatus === 'success' ? (
-                <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-              ) : testStatus === 'error' ? (
-                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+              ) : testStatus === 'offline' ? (
+                <Info className="w-4 h-4 text-slate-500 shrink-0 mt-0.5" />
               ) : (
-                <RefreshCw className="w-4 h-4 animate-spin text-slate-500 shrink-0" />
+                <RefreshCw className="w-4 h-4 animate-spin text-slate-500 shrink-0 mt-0.5" />
               )}
-              <span>{testMessage}</span>
+              <span className="leading-relaxed">{testMessage}</span>
             </div>
           )}
 
@@ -148,26 +166,35 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             <span>Quick presets:</span>
             <button
               type="button"
-              onClick={() => setApiBaseUrl('https://horse-tank-wendy-partners.trycloudflare.com')}
-              className="text-emerald-700 hover:underline font-mono bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 font-semibold"
-            >
-              Live Cloudflare Tunnel
-            </button>
-            <span>•</span>
-            <button
-              type="button"
-              onClick={() => setApiBaseUrl('http://localhost:8000')}
-              className="text-emerald-700 hover:underline font-mono"
+              onClick={() => {
+                setApiBaseUrl('http://localhost:8000');
+                setTestStatus('idle');
+              }}
+              className="text-emerald-700 hover:underline font-mono bg-white px-2 py-0.5 rounded border border-slate-200 cursor-pointer"
             >
               http://localhost:8000
             </button>
             <span>•</span>
             <button
               type="button"
-              onClick={() => setApiBaseUrl('http://127.0.0.1:8000')}
-              className="text-emerald-700 hover:underline font-mono"
+              onClick={() => {
+                setApiBaseUrl('http://127.0.0.1:8000');
+                setTestStatus('idle');
+              }}
+              className="text-emerald-700 hover:underline font-mono bg-white px-2 py-0.5 rounded border border-slate-200 cursor-pointer"
             >
               http://127.0.0.1:8000
+            </button>
+            <span>•</span>
+            <button
+              type="button"
+              onClick={() => {
+                setApiBaseUrl('');
+                setTestStatus('idle');
+              }}
+              className="text-slate-600 hover:underline font-mono bg-white px-2 py-0.5 rounded border border-slate-200 cursor-pointer"
+            >
+              Reset to Default
             </button>
           </div>
         </div>
@@ -264,7 +291,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         <div className="pt-2 flex justify-end">
           <button
             onClick={handleSave}
-            className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg shadow-sm transition-colors text-xs"
+            className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg shadow-xs transition-colors text-xs cursor-pointer"
           >
             <Save className="w-4 h-4" />
             Save Configuration

@@ -33,7 +33,7 @@ export const ModelInfoModal: React.FC<ModelInfoModalProps> = ({ modelInfo }) => 
           className={`px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1.5 border ${
             modelInfo.loaded
               ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-              : 'bg-rose-50 text-rose-700 border-rose-200'
+              : 'bg-slate-100 text-slate-600 border-slate-200'
           }`}
         >
           {modelInfo.loaded ? (
@@ -43,8 +43,8 @@ export const ModelInfoModal: React.FC<ModelInfoModalProps> = ({ modelInfo }) => 
             </>
           ) : (
             <>
-              <AlertCircle className="w-3.5 h-3.5 text-rose-600" />
-              Unavailable
+              <Layers className="w-3.5 h-3.5 text-slate-500" />
+              Waiting for Device
             </>
           )}
         </span>

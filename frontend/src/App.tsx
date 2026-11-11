@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
 import { CameraFeed } from './components/CameraFeed';
@@ -7,65 +7,65 @@ import { TopPredictions } from './components/TopPredictions';
 import { RecentImages } from './components/RecentImages';
 import { PredictionHistory } from './components/PredictionHistory';
 import { SettingsModal } from './components/SettingsModal';
+import { Info, X } from 'lucide-react';
 
 import {
   HealthStatus,
   CameraStatus,
   ModelInfo,
   PredictResponse,
-  PredictionRecord
+  PredictionRecord,
+  SystemConnectionStatus,
 } from './types';
 import { api } from './api/client';
+import { connectionManager } from './api/connectionManager';
+import { offlineStorage } from './api/storage';
 import {
   savePredictionToFirestore,
   subscribeToFirestorePredictions,
-  updateRoverTelemetry
+  updateRoverTelemetry,
 } from './firebase/firestore';
 
 export const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'history' | 'settings'>('dashboard');
 
+  // Centralized Connection Status
+  const [systemStatus, setSystemStatus] = useState<SystemConnectionStatus>(
+    connectionManager.getStatus()
+  );
+
   // System states
   const [health, setHealth] = useState<HealthStatus | null>(null);
   const [cameraStatus, setCameraStatus] = useState<CameraStatus | null>(null);
   const [modelInfo, setModelInfo] = useState<ModelInfo | null>(null);
-  const [latestPrediction, setLatestPrediction] = useState<PredictResponse | null>(null);
-  const [predictionHistory, setPredictionHistory] = useState<PredictionRecord[]>([]);
+  const [latestPrediction, setLatestPrediction] = useState<PredictResponse | null>(() =>
+    offlineStorage.getCachedLatestPrediction()
+  );
+  const [predictionHistory, setPredictionHistory] = useState<PredictionRecord[]>(() =>
+    offlineStorage.getCachedPredictions()
+  );
 
   // Operational states
   const [autoCapture, setAutoCapture] = useState<boolean>(false);
   const [captureInterval, setCaptureInterval] = useState<number>(5);
   const [isInferencing, setIsInferencing] = useState<boolean>(false);
-  const [isLoadingHealth, setIsLoadingHealth] = useState<boolean>(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+  const [userNotice, setUserNotice] = useState<{ message: string; actionText?: string; onAction?: () => void } | null>(null);
 
-  // Fetch initial system states
-  const fetchSystemStatus = useCallback(async () => {
-    setIsLoadingHealth(true);
+  // Track previous online state for auto-reconnect detection
+  const wasOnlineRef = useRef<boolean>(false);
+
+  // Load predictions safely (from API with offline fallback)
+  const refreshPredictions = useCallback(async () => {
     try {
-      const [h, cam, mod, hist] = await Promise.allSettled([
-        api.getHealth(),
-        api.getCameraStatus(),
-        api.getModelInfo(),
-        api.getPredictions(50),
-      ]);
-
-      if (h.status === 'fulfilled') setHealth(h.value);
-      if (cam.status === 'fulfilled') {
-        setCameraStatus(cam.value);
-        updateRoverTelemetry({
-          camera_connected: cam.value.connected,
-          camera_streaming: cam.value.streaming,
-          auto_capture: autoCapture,
-        });
-      }
-      if (mod.status === 'fulfilled') setModelInfo(mod.value);
-      if (hist.status === 'fulfilled') {
-        setPredictionHistory(hist.value);
-        // If we don't have a latest prediction yet, reconstruct from latest history record if available
-        if (hist.value.length > 0 && !latestPrediction) {
-          const latest = hist.value[0];
-          setLatestPrediction({
+      const records = await api.getPredictions(50);
+      if (records && records.length > 0) {
+        setPredictionHistory(records);
+        // If we don't have a latest prediction yet, reconstruct from latest history record
+        setLatestPrediction((prev) => {
+          if (prev) return prev;
+          const latest = records[0];
+          return {
             success: true,
             predicted_class: latest.predicted_class,
             display_name: `${latest.plant} ${latest.disease}`,
@@ -79,34 +79,65 @@ export const App: React.FC = () => {
             top_3_tomato_predictions: latest.tomato_top_predictions?.slice(0, 3) || [],
             image_filename: latest.image_filename,
             image_url: latest.image_url,
+            thumbnail_base64: latest.thumbnail_base64,
             timestamp: latest.timestamp,
             inference_time_ms: 22,
             disclaimer:
               'AI predictions are estimates based on computer vision models and do not substitute for certified agricultural inspection.',
-          });
-        }
+          };
+        });
       }
-    } catch (e: any) {
-      console.error('Error fetching system status:', e);
-    } finally {
-      setIsLoadingHealth(false);
+    } catch (e) {
+      // Offline fallback is already handled inside api.getPredictions()
     }
-  }, [latestPrediction]);
+  }, []);
 
-  // Periodic health polling (every 6 seconds)
+  // Subscribe to centralized connection manager
   useEffect(() => {
-    fetchSystemStatus();
-    const interval = setInterval(fetchSystemStatus, 6000);
-    return () => clearInterval(interval);
-  }, [fetchSystemStatus]);
+    const unsubscribe = connectionManager.subscribe((status) => {
+      setSystemStatus(status);
+      setHealth(status.health);
+      setCameraStatus(status.cameraStatus);
+      setModelInfo(status.modelInfo);
+
+      // Auto-reconnect: if backend was offline and is now online
+      if (!wasOnlineRef.current && status.isBackendConnected) {
+        refreshPredictions();
+      }
+      wasOnlineRef.current = status.isBackendConnected;
+
+      if (status.isCameraConnected) {
+        updateRoverTelemetry({
+          camera_connected: status.isCameraConnected,
+          camera_streaming: status.isCameraStreaming,
+          auto_capture: autoCapture,
+        });
+      }
+    });
+
+    // Start background health polling (12s interval)
+    connectionManager.startPolling(12000);
+
+    return () => {
+      unsubscribe();
+      connectionManager.stopPolling();
+    };
+  }, [autoCapture, refreshPredictions]);
+
+  // Initial load of predictions
+  useEffect(() => {
+    refreshPredictions();
+  }, [refreshPredictions]);
 
   // Real-time Cloud Firestore prediction sync
   useEffect(() => {
     const unsubscribe = subscribeToFirestorePredictions((records) => {
-      if (records.length > 0) {
+      if (records && records.length > 0) {
         setPredictionHistory((prev) => {
-          // If local history is empty, populate with cloud records
-          if (prev.length === 0) return records;
+          if (prev.length === 0) {
+            offlineStorage.setCachedPredictions(records);
+            return records;
+          }
           return prev;
         });
       }
@@ -114,15 +145,42 @@ export const App: React.FC = () => {
     return () => unsubscribe();
   }, []);
 
+  // Manual Refresh Handler
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await connectionManager.checkConnection({ force: true });
+      await refreshPredictions();
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
   // Start Camera Handler
   const handleStartCamera = async () => {
+    if (!systemStatus.isRoverOnline) {
+      setUserNotice({
+        message: 'Raspberry Pi is currently offline. Connect your device to enable camera streaming.',
+        actionText: 'Configure Connection ⚙️',
+        onAction: () => setActiveTab('settings'),
+      });
+      return;
+    }
+
     try {
-      setErrorMessage(null);
-      await api.startCamera();
+      setUserNotice(null);
+      const res = await api.startCamera();
+      if (!res.success) {
+        setUserNotice({
+          message: res.message || 'Webcam could not be started. Please check USB connection on Raspberry Pi.',
+        });
+      }
       const status = await api.getCameraStatus();
       setCameraStatus(status);
     } catch (err: any) {
-      setErrorMessage(`Camera Start Failed: ${err.message}`);
+      setUserNotice({
+        message: err.message || 'Unable to start camera. Please verify USB webcam connection.',
+      });
     }
   };
 
@@ -134,27 +192,40 @@ export const App: React.FC = () => {
       const status = await api.getCameraStatus();
       setCameraStatus(status);
     } catch (err: any) {
-      setErrorMessage(`Camera Stop Failed: ${err.message}`);
+      setUserNotice({
+        message: err.message || 'Unable to stop camera.',
+      });
     }
   };
 
   // Capture Now / Trigger Inference Handler
   const handleCaptureNow = async () => {
-    if (isInferencing) return; // Prevent overlapping requests
+    if (isInferencing) return;
+
+    if (!systemStatus.isRoverOnline) {
+      setUserNotice({
+        message: 'Raspberry Pi is currently offline. Connect your device to enable live disease detection.',
+        actionText: 'Configure Connection ⚙️',
+        onAction: () => setActiveTab('settings'),
+      });
+      return;
+    }
+
     setIsInferencing(true);
-    setErrorMessage(null);
+    setUserNotice(null);
 
     try {
       const pred = await api.predict();
       setLatestPrediction(pred);
-      // Sync prediction to Cloud Firestore
       savePredictionToFirestore(pred, 'camera_feed');
-      // Refresh history log
       const hist = await api.getPredictions(50);
       setPredictionHistory(hist);
     } catch (err: any) {
-      console.error('Inference error:', err);
-      setErrorMessage(err.message || 'Inference failed');
+      setUserNotice({
+        message: err.message || 'Prediction could not be completed at this time.',
+        actionText: !systemStatus.isRoverOnline ? 'Configure Connection ⚙️' : undefined,
+        onAction: !systemStatus.isRoverOnline ? () => setActiveTab('settings') : undefined,
+      });
     } finally {
       setIsInferencing(false);
     }
@@ -163,20 +234,29 @@ export const App: React.FC = () => {
   // Manual Image Upload Handler
   const handleUploadImage = async (file: File) => {
     if (isInferencing) return;
+
+    if (!systemStatus.isRoverOnline) {
+      setUserNotice({
+        message: 'Raspberry Pi is currently offline. Connect your device or start the backend to process leaf images.',
+        actionText: 'Configure Connection ⚙️',
+        onAction: () => setActiveTab('settings'),
+      });
+      return;
+    }
+
     setIsInferencing(true);
-    setErrorMessage(null);
+    setUserNotice(null);
 
     try {
       const pred = await api.predict(file);
       setLatestPrediction(pred);
-      // Sync prediction to Cloud Firestore
       savePredictionToFirestore(pred, 'manual_upload');
-      // Refresh history log
       const hist = await api.getPredictions(50);
       setPredictionHistory(hist);
     } catch (err: any) {
-      console.error('Upload inference error:', err);
-      setErrorMessage(err.message || 'Image prediction failed');
+      setUserNotice({
+        message: err.message || 'Leaf image prediction could not be processed.',
+      });
     } finally {
       setIsInferencing(false);
     }
@@ -188,6 +268,7 @@ export const App: React.FC = () => {
       <Sidebar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
+        systemStatus={systemStatus}
         cameraStatus={cameraStatus}
         modelInfo={modelInfo}
         health={health}
@@ -197,38 +278,41 @@ export const App: React.FC = () => {
       <div className="flex-1 h-screen flex flex-col min-w-0 overflow-hidden">
         {/* Top Header */}
         <Header
+          systemStatus={systemStatus}
           cameraStatus={cameraStatus}
           modelInfo={modelInfo}
           health={health}
           capturesCount={health?.captures_count ?? predictionHistory.length}
-          onRefresh={fetchSystemStatus}
-          isLoading={isLoadingHealth}
+          onRefresh={handleRefresh}
+          isLoading={isRefreshing}
         />
 
         {/* Scrollable Content View */}
         <div className="flex-1 overflow-y-auto">
-          {/* Global Error Notice if any */}
-          {errorMessage && (
-            <div className="mx-6 mt-4 p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center justify-between shadow-xs">
+          {/* Friendly Non-Alarming Action Notice */}
+          {userNotice && (
+            <div className="mx-6 mt-4 p-3 rounded-xl bg-slate-100 border border-slate-300 text-slate-700 text-xs flex items-center justify-between shadow-xs animate-fade-in">
               <div className="flex items-center gap-2">
-                <span className="font-medium">{errorMessage}</span>
-                {errorMessage.includes('Settings') && (
+                <Info className="w-4 h-4 text-slate-500 shrink-0" />
+                <span className="font-medium">{userNotice.message}</span>
+                {userNotice.actionText && userNotice.onAction && (
                   <button
                     onClick={() => {
-                      setActiveTab('settings');
-                      setErrorMessage(null);
+                      userNotice.onAction?.();
+                      setUserNotice(null);
                     }}
-                    className="underline font-bold text-rose-900 hover:text-black ml-2"
+                    className="underline font-bold text-emerald-700 hover:text-emerald-900 ml-2 cursor-pointer"
                   >
-                    Open Settings ⚙️
+                    {userNotice.actionText}
                   </button>
                 )}
               </div>
               <button
-                onClick={() => setErrorMessage(null)}
-                className="text-rose-600 font-bold hover:underline shrink-0 ml-4"
+                onClick={() => setUserNotice(null)}
+                className="text-slate-400 hover:text-slate-600 shrink-0 ml-4 p-1 cursor-pointer"
+                title="Dismiss"
               >
-                Dismiss
+                <X className="w-4 h-4" />
               </button>
             </div>
           )}
@@ -242,6 +326,7 @@ export const App: React.FC = () => {
                   {/* Live Camera Feed Card */}
                   <div className="lg:col-span-7">
                     <CameraFeed
+                      systemStatus={systemStatus}
                       cameraStatus={cameraStatus}
                       onStartCamera={handleStartCamera}
                       onStopCamera={handleStopCamera}
@@ -259,6 +344,7 @@ export const App: React.FC = () => {
                     <LatestPrediction
                       prediction={latestPrediction}
                       modelLoaded={modelInfo?.loaded ?? false}
+                      isRoverConnected={systemStatus.isRoverOnline}
                       isInferencing={isInferencing}
                     />
 
@@ -268,25 +354,33 @@ export const App: React.FC = () => {
                 </div>
 
                 {/* Bottom Row: Recent Captured Images Gallery */}
-                <RecentImages records={predictionHistory} />
+                <RecentImages
+                  records={predictionHistory}
+                  isRoverOnline={systemStatus.isRoverOnline}
+                />
               </div>
             )}
 
             {activeTab === 'history' && (
               <PredictionHistory
                 records={predictionHistory}
-                onRefresh={fetchSystemStatus}
-                isLoading={isLoadingHealth}
+                onRefresh={handleRefresh}
+                isLoading={isRefreshing}
+                isRoverOnline={systemStatus.isRoverOnline}
               />
             )}
-
 
             {activeTab === 'settings' && (
               <SettingsModal
                 captureInterval={captureInterval}
                 setCaptureInterval={setCaptureInterval}
+                systemStatus={systemStatus}
                 cameraStatus={cameraStatus}
                 modelInfo={modelInfo}
+                onConnectionUpdated={() => {
+                  connectionManager.checkConnection({ force: true });
+                  refreshPredictions();
+                }}
               />
             )}
           </main>

@@ -7,8 +7,7 @@ import {
   Zap, 
   Maximize2, 
   X,
-  Layers,
-  HelpCircle
+  Layers
 } from 'lucide-react';
 import { PredictResponse } from '../types';
 import { api } from '../api/client';
@@ -16,44 +15,49 @@ import { api } from '../api/client';
 interface LatestPredictionProps {
   prediction: PredictResponse | null;
   modelLoaded: boolean;
+  isRoverConnected: boolean;
   isInferencing: boolean;
 }
 
 export const LatestPrediction: React.FC<LatestPredictionProps> = ({
   prediction,
   modelLoaded,
+  isRoverConnected,
   isInferencing,
 }) => {
   const [modalImageOpen, setModalImageOpen] = useState(false);
   const [imageFailed, setImageFailed] = useState(false);
 
-  // If model is not loaded and we have no prediction at all
-  if (!modelLoaded && !prediction) {
+  // If no prediction exists and rover is offline
+  if (!prediction && !isRoverConnected) {
     return (
-      <div className="bg-white rounded-2xl border border-amber-200/80 p-6 shadow-sm flex flex-col items-center justify-center text-center space-y-3">
-        <div className="w-12 h-12 rounded-full bg-amber-50 flex items-center justify-center text-amber-600 border border-amber-200">
-          <ShieldAlert className="w-6 h-6" />
+      <div className="bg-white rounded-2xl border border-slate-200/80 p-8 shadow-xs flex flex-col items-center justify-center text-center space-y-3">
+        <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-500 border border-slate-200 shadow-inner">
+          <Layers className="w-7 h-7" />
         </div>
         <div>
-          <h3 className="font-bold text-slate-800">Edge Inference Engine Offline</h3>
-          <p className="text-xs text-slate-500 mt-1 max-w-sm">
-            The MobileNetV2 29-class model is waiting for backend connection. Start your Raspberry Pi server or configure your HTTPS tunnel URL in Settings.
+          <h3 className="text-sm font-bold text-slate-800">Waiting for AI Model</h3>
+          <p className="text-xs text-slate-500 mt-1 max-w-xs leading-relaxed">
+            Raspberry Pi is currently offline. Connect your device to enable live disease detection.
           </p>
+        </div>
+        <div className="text-[11px] text-slate-500 font-mono bg-slate-100 px-2.5 py-1 rounded-full border border-slate-200">
+          Device Offline
         </div>
       </div>
     );
   }
 
-  // If model is loaded but no prediction has been captured yet
+  // If rover is connected but no prediction has been captured yet
   if (!prediction) {
     return (
-      <div className="bg-white rounded-2xl border border-slate-200/80 p-8 shadow-sm flex flex-col items-center justify-center text-center space-y-3">
+      <div className="bg-white rounded-2xl border border-slate-200/80 p-8 shadow-xs flex flex-col items-center justify-center text-center space-y-3">
         <div className="w-14 h-14 rounded-2xl bg-emerald-50 flex items-center justify-center text-emerald-600 border border-emerald-100 shadow-inner">
           <Leaf className="w-7 h-7" />
         </div>
         <div>
           <h3 className="text-sm font-bold text-slate-800">Awaiting Leaf Specimen</h3>
-          <p className="text-xs text-slate-500 mt-1 max-w-xs">
+          <p className="text-xs text-slate-500 mt-1 max-w-xs leading-relaxed">
             Start the camera and enable Auto Capture, or click 'Capture Now' to run real-time inference on a leaf.
           </p>
         </div>
@@ -76,7 +80,7 @@ export const LatestPrediction: React.FC<LatestPredictionProps> = ({
   const imgSrc = prediction.thumbnail_base64 || (prediction.image_url ? api.getImageUrl(prediction.image_url) : '');
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden flex flex-col">
+    <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden flex flex-col">
       {/* Header */}
       <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
         <div className="flex items-center gap-2">
@@ -86,19 +90,22 @@ export const LatestPrediction: React.FC<LatestPredictionProps> = ({
           <div>
             <h3 className="text-sm font-bold text-slate-800">Latest Prediction</h3>
             <p className="text-[11px] text-slate-500">
-              {modelLoaded ? 'Real-Time Edge Inference' : 'Archived Specimen (Rover Standby)'}
+              {isRoverConnected && modelLoaded
+                ? 'Real-Time Edge Inference'
+                : 'Archived Specimen Record'}
             </p>
           </div>
         </div>
 
-        {/* Inference Latency / Offline Tag */}
+        {/* Status Pill */}
         <div className="flex items-center gap-2 text-xs font-mono text-slate-500 bg-white px-2.5 py-1 rounded-md border border-slate-200 shadow-2xs">
-          {!modelLoaded && (
-            <span className="text-[10px] text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded font-sans font-semibold">
+          {!isRoverConnected ? (
+            <span className="text-[10px] text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded font-sans font-semibold border border-slate-200">
               Offline Cache
             </span>
+          ) : (
+            <span>{prediction.inference_time_ms} ms</span>
           )}
-          <span>{prediction.inference_time_ms} ms</span>
         </div>
       </div>
 
@@ -109,7 +116,7 @@ export const LatestPrediction: React.FC<LatestPredictionProps> = ({
             {/* Captured Leaf Thumbnail */}
             <div 
               onClick={() => setModalImageOpen(true)}
-              className="relative w-20 h-20 rounded-xl overflow-hidden border-2 border-emerald-500/40 shadow-sm shrink-0 cursor-pointer group bg-slate-900 flex items-center justify-center"
+              className="relative w-20 h-20 rounded-xl overflow-hidden border-2 border-emerald-500/40 shadow-xs shrink-0 cursor-pointer group bg-slate-900 flex items-center justify-center"
             >
               {!imageFailed && imgSrc ? (
                 <img
@@ -145,7 +152,7 @@ export const LatestPrediction: React.FC<LatestPredictionProps> = ({
                 <span
                   className={`px-2 py-0.5 rounded text-[11px] font-bold flex items-center gap-1 ${
                     isHealthy
-                      ? 'bg-emerald-600 text-white shadow-xs'
+                      ? 'bg-emerald-600 text-white shadow-2xs'
                       : 'bg-amber-100 text-amber-900 border border-amber-300'
                   }`}
                 >
@@ -225,9 +232,9 @@ export const LatestPrediction: React.FC<LatestPredictionProps> = ({
                   <Leaf className="w-10 h-10" />
                 </div>
                 <div>
-                  <h4 className="text-white font-bold text-sm">Specimen Saved in Rover Archive</h4>
+                  <h4 className="text-white font-bold text-sm">Specimen Saved in Archive</h4>
                   <p className="text-xs text-slate-400 mt-1 max-w-xs">
-                    File <code className="text-emerald-400 font-mono text-[11px]">{prediction.image_filename || 'capture.jpg'}</code> is stored locally on the rover.
+                    File <code className="text-emerald-400 font-mono text-[11px]">{prediction.image_filename || 'capture.jpg'}</code> is stored in local archives.
                   </p>
                 </div>
               </div>

@@ -4,16 +4,17 @@ import {
   Square, 
   Camera, 
   Clock, 
-  AlertTriangle, 
-  CheckCircle2, 
   Upload, 
   Loader2, 
-  RefreshCw 
+  RefreshCw,
+  Radio,
+  WifiOff
 } from 'lucide-react';
-import { CameraStatus } from '../types';
+import { CameraStatus, SystemConnectionStatus } from '../types';
 import { api } from '../api/client';
 
 interface CameraFeedProps {
+  systemStatus: SystemConnectionStatus;
   cameraStatus: CameraStatus | null;
   onStartCamera: () => Promise<void>;
   onStopCamera: () => Promise<void>;
@@ -26,6 +27,7 @@ interface CameraFeedProps {
 }
 
 export const CameraFeed: React.FC<CameraFeedProps> = ({
+  systemStatus,
   cameraStatus,
   onStartCamera,
   onStopCamera,
@@ -36,7 +38,9 @@ export const CameraFeed: React.FC<CameraFeedProps> = ({
   setAutoCapture,
   captureInterval = 5,
 }) => {
-  const isCameraOnline = cameraStatus?.connected && cameraStatus?.streaming;
+  const isRoverConnected = systemStatus.isRoverOnline;
+  const isCameraOnline = isRoverConnected && cameraStatus?.connected && cameraStatus?.streaming;
+
   const [countdown, setCountdown] = useState<number>(captureInterval);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [streamError, setStreamError] = useState<boolean>(false);
@@ -52,7 +56,6 @@ export const CameraFeed: React.FC<CameraFeedProps> = ({
       timer = setInterval(() => {
         setCountdown((prev) => {
           if (prev <= 1) {
-            // Trigger automatic capture if not already inferencing
             if (!isInferencing) {
               onCaptureNow();
             }
@@ -70,7 +73,7 @@ export const CameraFeed: React.FC<CameraFeedProps> = ({
     };
   }, [autoCapture, isCameraOnline, captureInterval, isInferencing, onCaptureNow]);
 
-  // When camera stops, turn off auto capture cleanly
+  // When camera stops or rover disconnects, turn off auto capture cleanly
   useEffect(() => {
     if (!isCameraOnline && autoCapture) {
       setAutoCapture(false);
@@ -89,7 +92,7 @@ export const CameraFeed: React.FC<CameraFeedProps> = ({
   };
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden flex flex-col">
+    <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden flex flex-col">
       {/* Top Header of Card */}
       <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
         <div className="flex items-center gap-2">
@@ -116,7 +119,11 @@ export const CameraFeed: React.FC<CameraFeedProps> = ({
                 isCameraOnline ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'
               }`}
             />
-            {isCameraOnline ? 'STREAMING' : 'OFFLINE'}
+            {isCameraOnline
+              ? 'STREAMING'
+              : !isRoverConnected
+              ? 'OFFLINE'
+              : 'CAMERA IDLE'}
           </span>
 
           {isCameraOnline && (
@@ -144,20 +151,30 @@ export const CameraFeed: React.FC<CameraFeedProps> = ({
         ) : (
           <div className="p-8 text-center max-w-sm space-y-3">
             <div className="w-12 h-12 mx-auto rounded-full bg-slate-800 flex items-center justify-center text-slate-400 border border-slate-700">
-              <Camera className="w-6 h-6" />
+              {!isRoverConnected ? (
+                <WifiOff className="w-6 h-6 text-slate-400" />
+              ) : (
+                <Camera className="w-6 h-6 text-slate-400" />
+              )}
             </div>
             <div>
               <p className="text-slate-200 font-semibold text-sm">
-                {cameraStatus?.error ? 'Camera Disconnected' : 'Camera Feed Inactive'}
+                {!isRoverConnected
+                  ? 'Waiting for Raspberry Pi'
+                  : cameraStatus?.error
+                  ? 'Webcam Not Detected'
+                  : 'Camera Feed Inactive'}
               </p>
-              <p className="text-xs text-slate-400 mt-1">
-                {cameraStatus?.error || "Click 'Start Camera' below to initialize the USB webcam on Raspberry Pi."}
+              <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                {!isRoverConnected
+                  ? 'Raspberry Pi is currently offline. Connect your device to enable live disease detection.'
+                  : cameraStatus?.error || "Click 'Start Camera' below to initialize the USB webcam."}
               </p>
             </div>
-            {cameraStatus?.error && (
-              <p className="text-[11px] text-amber-400/90 bg-amber-950/40 p-2 rounded border border-amber-800/40">
-                Check that the Logitech webcam is plugged into a Raspberry Pi USB 3.0 port.
-              </p>
+            {!isRoverConnected && (
+              <div className="text-[11px] text-slate-400 bg-slate-800/80 px-3 py-1.5 rounded-lg border border-slate-700/80">
+                Live stream will automatically initialize once Raspberry Pi reconnects.
+              </div>
             )}
           </div>
         )}
@@ -199,7 +216,9 @@ export const CameraFeed: React.FC<CameraFeedProps> = ({
             {!isCameraOnline ? (
               <button
                 onClick={onStartCamera}
-                className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-xs font-bold rounded-lg transition-all shadow-sm shadow-emerald-700/20"
+                disabled={!isRoverConnected}
+                title={!isRoverConnected ? 'Available when device is connected' : 'Start live camera'}
+                className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-xs font-bold rounded-lg transition-all shadow-2xs shadow-emerald-700/20 disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <Play className="w-3.5 h-3.5 fill-current" />
                 Start Camera
@@ -207,7 +226,7 @@ export const CameraFeed: React.FC<CameraFeedProps> = ({
             ) : (
               <button
                 onClick={onStopCamera}
-                className="flex items-center gap-2 px-4 py-2 bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white text-xs font-bold rounded-lg transition-all shadow-sm shadow-rose-700/20"
+                className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-800 text-white text-xs font-bold rounded-lg transition-all shadow-2xs"
               >
                 <Square className="w-3.5 h-3.5 fill-current" />
                 Stop Camera
@@ -218,7 +237,14 @@ export const CameraFeed: React.FC<CameraFeedProps> = ({
             <button
               onClick={onCaptureNow}
               disabled={!isCameraOnline || isInferencing}
-              className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-900 active:bg-slate-950 text-white text-xs font-bold rounded-lg transition-all shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
+              title={
+                !isRoverConnected
+                  ? 'Available when device is connected'
+                  : !isCameraOnline
+                  ? 'Start camera to capture frames'
+                  : 'Capture and classify now'
+              }
+              className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-900 active:bg-slate-950 text-white text-xs font-bold rounded-lg transition-all shadow-2xs disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <Camera className="w-3.5 h-3.5" />
               Capture Now
@@ -227,15 +253,15 @@ export const CameraFeed: React.FC<CameraFeedProps> = ({
 
           {/* Auto Capture Toggle */}
           <div className="flex items-center gap-3">
-            <label className="flex items-center gap-2 cursor-pointer select-none">
+            <label className={`flex items-center gap-2 select-none ${isCameraOnline ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'}`}>
               <span className="text-xs font-semibold text-slate-700">Auto Capture:</span>
               <div
                 onClick={() => {
                   if (isCameraOnline) setAutoCapture(!autoCapture);
                 }}
-                className={`w-11 h-6 rounded-full transition-colors relative p-0.5 cursor-pointer ${
+                className={`w-11 h-6 rounded-full transition-colors relative p-0.5 ${
                   autoCapture && isCameraOnline ? 'bg-emerald-600' : 'bg-slate-300'
-                } ${!isCameraOnline ? 'opacity-50 cursor-not-allowed' : ''}`}
+                }`}
               >
                 <div
                   className={`w-5 h-5 bg-white rounded-full transition-transform shadow-sm transform ${
@@ -245,14 +271,14 @@ export const CameraFeed: React.FC<CameraFeedProps> = ({
               </div>
             </label>
             <span className="text-[11px] text-slate-400 font-mono bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
-              5s interval
+              {captureInterval}s interval
             </span>
           </div>
         </div>
 
         {/* Fallback Upload Image for Testing / Offline */}
         <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-          <span>Manual testing mode:</span>
+          <span>Manual inspection:</span>
           <input
             type="file"
             ref={fileInputRef}
@@ -261,7 +287,9 @@ export const CameraFeed: React.FC<CameraFeedProps> = ({
             className="hidden"
           />
           <button
-            onClick={() => fileInputRef.current?.click()}
+            onClick={() => {
+              if (fileInputRef.current) fileInputRef.current.click();
+            }}
             disabled={isInferencing}
             className="flex items-center gap-1.5 text-emerald-700 hover:text-emerald-800 font-medium hover:underline disabled:opacity-50"
           >

@@ -2,13 +2,11 @@ import React, { useState } from 'react';
 import { 
   History, 
   Search, 
-  Filter, 
-  ExternalLink, 
   CheckCircle2, 
-  AlertCircle, 
   Clock, 
   Leaf, 
-  RefreshCw 
+  RefreshCw,
+  Inbox
 } from 'lucide-react';
 import { PredictionRecord } from '../types';
 import { api } from '../api/client';
@@ -17,12 +15,14 @@ interface PredictionHistoryProps {
   records: PredictionRecord[];
   onRefresh: () => void;
   isLoading: boolean;
+  isRoverOnline?: boolean;
 }
 
 export const PredictionHistory: React.FC<PredictionHistoryProps> = ({
   records,
   onRefresh,
   isLoading,
+  isRoverOnline = false,
 }) => {
   const [filterPlant, setFilterPlant] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState<string>('');
@@ -32,12 +32,13 @@ export const PredictionHistory: React.FC<PredictionHistoryProps> = ({
       filterPlant === 'all' || rec.plant.toLowerCase() === filterPlant.toLowerCase();
     const matchesSearch =
       rec.predicted_class.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      rec.disease.toLowerCase().includes(searchTerm.toLowerCase());
+      rec.disease.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      rec.plant.toLowerCase().includes(searchTerm.toLowerCase());
     return matchesPlant && matchesSearch;
   });
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden flex flex-col">
+    <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden flex flex-col">
       {/* Table Header & Controls */}
       <div className="p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-slate-50/50">
         <div className="flex items-center gap-2">
@@ -46,7 +47,11 @@ export const PredictionHistory: React.FC<PredictionHistoryProps> = ({
           </div>
           <div>
             <h3 className="text-base font-bold text-slate-800">Prediction History Log</h3>
-            <p className="text-xs text-slate-500">Persistent SQLite Database Records</p>
+            <p className="text-xs text-slate-500">
+              {isRoverOnline
+                ? 'Persistent Edge Database Records'
+                : 'Local & Cloud Synced Specimen Records (Device Offline)'}
+            </p>
           </div>
         </div>
 
@@ -58,7 +63,7 @@ export const PredictionHistory: React.FC<PredictionHistoryProps> = ({
               <button
                 key={p}
                 onClick={() => setFilterPlant(p)}
-                className={`px-2.5 py-1 rounded-md capitalize transition-all ${
+                className={`px-2.5 py-1 rounded-md capitalize transition-all cursor-pointer ${
                   filterPlant === p
                     ? 'bg-white text-emerald-800 font-bold shadow-xs'
                     : 'text-slate-600 hover:text-slate-900'
@@ -84,7 +89,7 @@ export const PredictionHistory: React.FC<PredictionHistoryProps> = ({
           <button
             onClick={onRefresh}
             disabled={isLoading}
-            className="p-1.5 text-slate-500 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg border border-slate-200 transition-colors shadow-2xs disabled:opacity-50"
+            className="p-1.5 text-slate-500 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg border border-slate-200 transition-colors shadow-2xs disabled:opacity-50 cursor-pointer"
             title="Refresh history"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin text-emerald-600' : ''}`} />
@@ -108,10 +113,24 @@ export const PredictionHistory: React.FC<PredictionHistoryProps> = ({
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {filteredRecords.length === 0 ? (
+            {records.length === 0 ? (
               <tr>
-                <td colSpan={8} className="py-12 text-center text-slate-400 text-xs">
-                  No prediction records match the current criteria.
+                <td colSpan={8} className="py-14 text-center">
+                  <div className="flex flex-col items-center justify-center space-y-2 max-w-sm mx-auto">
+                    <div className="p-3 bg-slate-100 rounded-full text-slate-400">
+                      <Inbox className="w-6 h-6" />
+                    </div>
+                    <p className="font-semibold text-slate-700 text-sm">No Field Records Yet</p>
+                    <p className="text-xs text-slate-500">
+                      Archived disease scans will appear here once the Raspberry Pi captures its first specimen.
+                    </p>
+                  </div>
+                </td>
+              </tr>
+            ) : filteredRecords.length === 0 ? (
+              <tr>
+                <td colSpan={8} className="py-10 text-center text-slate-400 text-xs">
+                  No prediction records match the current filter criteria.
                 </td>
               </tr>
             ) : (
@@ -122,7 +141,7 @@ export const PredictionHistory: React.FC<PredictionHistoryProps> = ({
                   hour: '2-digit',
                   minute: '2-digit',
                 });
-                const isHealthy = rec.disease.toLowerCase() === 'healthy';
+                const imgSrc = rec.thumbnail_base64 || (rec.image_url ? api.getImageUrl(rec.image_url) : '');
 
                 return (
                   <tr key={rec.id} className="hover:bg-slate-50/70 transition-colors">
@@ -131,12 +150,16 @@ export const PredictionHistory: React.FC<PredictionHistoryProps> = ({
                     </td>
 
                     <td className="py-3 px-4">
-                      {rec.image_url ? (
-                        <div className="w-10 h-10 rounded-lg overflow-hidden border border-slate-200 shadow-2xs">
+                      {imgSrc ? (
+                        <div className="w-10 h-10 rounded-lg overflow-hidden border border-slate-200 shadow-2xs bg-slate-900">
                           <img
-                            src={api.getImageUrl(rec.image_url)}
+                            src={imgSrc}
                             alt="Leaf"
                             className="w-full h-full object-cover"
+                            onError={(e) => {
+                              // Hide broken image smoothly
+                              (e.target as HTMLElement).style.display = 'none';
+                            }}
                           />
                         </div>
                       ) : (

@@ -5,16 +5,18 @@ import {
   Settings as SettingsIcon, 
   Camera, 
   CheckCircle, 
-  XCircle, 
   Radio,
   Layers,
-  Cloud
+  Cloud,
+  Server,
+  WifiOff
 } from 'lucide-react';
-import { CameraStatus, ModelInfo, HealthStatus } from '../types';
+import { CameraStatus, ModelInfo, HealthStatus, SystemConnectionStatus } from '../types';
 
 interface SidebarProps {
   activeTab: 'dashboard' | 'history' | 'settings';
   setActiveTab: (tab: 'dashboard' | 'history' | 'settings') => void;
+  systemStatus: SystemConnectionStatus;
   cameraStatus: CameraStatus | null;
   modelInfo: ModelInfo | null;
   health: HealthStatus | null;
@@ -23,13 +25,15 @@ interface SidebarProps {
 export const Sidebar: React.FC<SidebarProps> = ({
   activeTab,
   setActiveTab,
+  systemStatus,
   cameraStatus,
   modelInfo,
   health,
 }) => {
-  const isCameraOnline = cameraStatus?.connected && cameraStatus?.streaming;
-  const isModelReady = modelInfo?.loaded;
-  const isRoverConnected = !!health;
+  const isRoverConnected = systemStatus.isRoverOnline;
+  const isBackendConnected = systemStatus.isBackendConnected;
+  const isCameraOnline = isRoverConnected && (cameraStatus?.connected && cameraStatus?.streaming);
+  const isModelReady = isRoverConnected && (modelInfo?.loaded ?? false);
 
   return (
     <aside className="w-64 h-screen sticky top-0 bg-slate-900 text-slate-100 flex flex-col justify-between border-r border-slate-800 shadow-xl shrink-0 overflow-y-auto select-none z-20">
@@ -96,15 +100,33 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <div className="flex items-center justify-between text-slate-300 font-semibold pb-1.5 border-b border-slate-700/50">
             <span className="flex items-center gap-1.5">
               <Radio className={`w-3.5 h-3.5 ${isRoverConnected ? 'text-emerald-400 animate-pulse' : 'text-slate-500'}`} />
-              Raspberry Pi 4
+              Raspberry Pi
             </span>
             {isRoverConnected ? (
               <span className="text-[10px] text-emerald-400 bg-emerald-950/60 px-1.5 py-0.5 rounded border border-emerald-800/40">
                 {health?.uptime_seconds ? `${Math.floor(health.uptime_seconds / 60)}m up` : 'Online'}
               </span>
             ) : (
-              <span className="text-[10px] text-amber-400 bg-amber-950/60 px-1.5 py-0.5 rounded border border-amber-800/40 font-mono">
-                Disconnected
+              <span className="text-[10px] text-slate-400 bg-slate-700/50 px-1.5 py-0.5 rounded border border-slate-600/50 font-mono">
+                Offline
+              </span>
+            )}
+          </div>
+
+          {/* Backend API status */}
+          <div className="flex items-center justify-between">
+            <span className="text-slate-400 flex items-center gap-1.5">
+              <Server className="w-3.5 h-3.5" />
+              Backend API
+            </span>
+            {isBackendConnected ? (
+              <span className="text-emerald-400 flex items-center gap-1 font-medium">
+                <CheckCircle className="w-3 h-3 text-emerald-400" />
+                Connected
+              </span>
+            ) : (
+              <span className="text-slate-400 font-medium text-[11px]">
+                Waiting for Connection
               </span>
             )}
           </div>
@@ -113,17 +135,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <div className="flex items-center justify-between">
             <span className="text-slate-400 flex items-center gap-1.5">
               <Camera className="w-3.5 h-3.5" />
-              Logitech USB
+              Camera
             </span>
             {isCameraOnline ? (
               <span className="text-emerald-400 flex items-center gap-1 font-medium">
                 <CheckCircle className="w-3 h-3 text-emerald-400" />
-                Active
+                Live
               </span>
             ) : (
-              <span className="text-amber-400 flex items-center gap-1 font-medium">
-                <XCircle className="w-3 h-3 text-amber-400" />
-                Offline
+              <span className="text-slate-400 font-medium text-[11px]">
+                Not Connected
               </span>
             )}
           </div>
@@ -132,7 +153,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <div className="flex items-center justify-between">
             <span className="text-slate-400 flex items-center gap-1.5">
               <Layers className="w-3.5 h-3.5" />
-              MobileNetV2
+              AI Model
             </span>
             {isModelReady ? (
               <span className="text-emerald-400 flex items-center gap-1 font-medium">
@@ -140,9 +161,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 Loaded
               </span>
             ) : (
-              <span className="text-rose-400 flex items-center gap-1 font-medium">
-                <XCircle className="w-3 h-3 text-rose-400" />
-                Offline
+              <span className="text-slate-400 font-medium text-[11px]">
+                Waiting for Device
               </span>
             )}
           </div>
@@ -150,8 +170,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {/* Cloud Firestore status */}
           <div className="flex items-center justify-between">
             <span className="text-slate-400 flex items-center gap-1.5">
-              <Cloud className="w-3.5 h-3.5 text-amber-400" />
-              Cloud Firestore
+              <Cloud className="w-3.5 h-3.5 text-emerald-400" />
+              Cloud Sync
             </span>
             <span className="text-emerald-400 flex items-center gap-1 font-medium">
               <CheckCircle className="w-3 h-3 text-emerald-400" />
@@ -159,14 +179,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </span>
           </div>
 
-          {/* Direct connect button if backend is disconnected */}
+          {/* Direct connect button if backend is offline */}
           {!isRoverConnected && (
             <button
               onClick={() => setActiveTab('settings')}
-              className="w-full mt-2 pt-2 border-t border-slate-700/50 py-1 px-2 bg-emerald-950/30 hover:bg-emerald-900/40 border border-emerald-700/40 rounded-lg text-[10px] text-emerald-300 font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+              className="w-full mt-2 pt-2 border-t border-slate-700/50 py-1.5 px-2 bg-slate-700/30 hover:bg-emerald-950/40 border border-slate-700 hover:border-emerald-700/50 rounded-lg text-[11px] text-slate-300 hover:text-emerald-300 font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
             >
               <SettingsIcon className="w-3 h-3 text-emerald-400" />
-              Connect Rover Backend
+              Configure Connection
             </button>
           )}
         </div>

@@ -80,3 +80,21 @@ export interface PredictionRecord {
   thumbnail_base64?: string | null;
   source: string;
 }
+
+export type ConnectionState = 'connected' | 'offline' | 'checking';
+
+export interface SystemConnectionStatus {
+  state: ConnectionState;
+  isBackendConnected: boolean;
+  isRoverOnline: boolean;
+  isCameraConnected: boolean;
+  isCameraStreaming: boolean;
+  isModelLoaded: boolean;
+  lastChecked: number | null;
+  apiBase: string;
+  health: HealthStatus | null;
+  cameraStatus: CameraStatus | null;
+  modelInfo: ModelInfo | null;
+  error?: string | null;
+}
+

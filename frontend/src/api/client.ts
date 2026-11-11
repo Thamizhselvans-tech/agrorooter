@@ -3,154 +3,180 @@ import {
   CameraStatus,
   ModelInfo,
   PredictResponse,
-  PredictionRecord
+  PredictionRecord,
 } from '../types';
+import { connectionManager } from './connectionManager';
+import { offlineStorage } from './storage';
 
 export function getApiBase(): string {
-  if (typeof window !== 'undefined') {
-    const saved = localStorage.getItem('AGRI_ROVER_API_BASE');
-    if (saved && saved.trim()) {
-      return saved.trim().replace(/\/+$/, '');
-    }
-  }
-  const raw =
-    (import.meta as any).env?.VITE_API_BASE ||
-    (import.meta as any).env?.VITE_API_BASE_URL ||
-    'https://horse-tank-wendy-partners.trycloudflare.com';
-  return raw.replace(/\/+$/, '');
+  return connectionManager.getApiBase();
 }
 
 export function setApiBase(url: string): void {
-  if (typeof window !== 'undefined') {
-    if (url && url.trim()) {
-      localStorage.setItem('AGRI_ROVER_API_BASE', url.trim().replace(/\/+$/, ''));
-    } else {
-      localStorage.removeItem('AGRI_ROVER_API_BASE');
-    }
-  }
+  connectionManager.setApiBase(url);
 }
 
 export const API_BASE = getApiBase();
-const API_KEY: string = (import.meta as any).env?.VITE_API_KEY || '';
-
-function buildUrl(path: string): string {
-  const base = getApiBase();
-  const cleanPath = path.startsWith('/') ? path : `/${path}`;
-  if (!base) {
-    return cleanPath;
-  }
-  return `${base}${cleanPath}`;
-}
-
-function getHeaders(extraHeaders: Record<string, string> = {}): HeadersInit {
-  const headers: Record<string, string> = { ...extraHeaders };
-  if (API_KEY) {
-    headers['X-API-Key'] = API_KEY;
-  }
-  return headers;
-}
 
 export const api = {
   async getHealth(): Promise<HealthStatus> {
-    const res = await fetch(buildUrl('/api/health'), {
-      headers: getHeaders(),
-    });
-    if (!res.ok) throw new Error(`Health check failed: ${res.statusText}`);
+    const res = await connectionManager.safeFetch('/api/health', { method: 'GET' }, 4000);
+    if (!res.ok) throw new Error(`Health check unavailable (${res.status})`);
     return res.json();
   },
 
   async getModelInfo(): Promise<ModelInfo> {
-    const res = await fetch(buildUrl('/api/model/info'), {
-      headers: getHeaders(),
-    });
-    if (!res.ok) throw new Error(`Failed to fetch model info: ${res.statusText}`);
+    const res = await connectionManager.safeFetch('/api/model/info', { method: 'GET' }, 4000);
+    if (!res.ok) throw new Error(`Model info unavailable (${res.status})`);
     return res.json();
   },
 
   async getCameraStatus(): Promise<CameraStatus> {
-    const res = await fetch(buildUrl('/api/camera/status'), {
-      headers: getHeaders(),
-    });
-    if (!res.ok) throw new Error(`Failed to fetch camera status: ${res.statusText}`);
+    const res = await connectionManager.safeFetch('/api/camera/status', { method: 'GET' }, 4000);
+    if (!res.ok) throw new Error(`Camera status unavailable (${res.status})`);
     return res.json();
   },
 
   async startCamera(): Promise<{ success: boolean; message: string; connected: boolean; streaming: boolean }> {
-    const res = await fetch(buildUrl('/api/camera/start'), {
-      method: 'POST',
-      headers: getHeaders(),
-    });
-    if (!res.ok) throw new Error(`Failed to start camera: ${res.statusText}`);
+    const res = await connectionManager.safeFetch(
+      '/api/camera/start',
+      { method: 'POST' },
+      5000
+    );
+    if (!res.ok) {
+      throw new Error('Unable to start camera. Please verify the webcam is connected to the Raspberry Pi.');
+    }
     return res.json();
   },
 
   async stopCamera(): Promise<{ success: boolean; message: string; connected: boolean; streaming: boolean }> {
-    const res = await fetch(buildUrl('/api/camera/stop'), {
-      method: 'POST',
-      headers: getHeaders(),
-    });
-    if (!res.ok) throw new Error(`Failed to stop camera: ${res.statusText}`);
+    const res = await connectionManager.safeFetch(
+      '/api/camera/stop',
+      { method: 'POST' },
+      5000
+    );
+    if (!res.ok) {
+      throw new Error('Unable to stop camera.');
+    }
     return res.json();
   },
 
   async predict(file?: File): Promise<PredictResponse> {
-    let res: Response;
+    let body: any = undefined;
+    const headers: Record<string, string> = {};
+
     if (file) {
       const formData = new FormData();
       formData.append('file', file);
-      res = await fetch(buildUrl('/api/predict'), {
-        method: 'POST',
-        headers: getHeaders(),
-        body: formData,
-      });
-    } else {
-      res = await fetch(buildUrl('/api/predict'), {
-        method: 'POST',
-        headers: getHeaders(),
-      });
+      body = formData;
     }
 
-    if (!res.ok) {
-      if (res.status === 405) {
+    try {
+      const res = await connectionManager.safeFetch(
+        '/api/predict',
+        {
+          method: 'POST',
+          body,
+          headers,
+        },
+        12000 // Give inference a little more time
+      );
+
+      if (!res.ok) {
+        if (res.status === 405) {
+          throw new Error(
+            'Backend connection required: Connect your Raspberry Pi or configure your tunnel in Settings to run AI inference.'
+          );
+        }
+        if (res.status === 503) {
+          const errData = await res.json().catch(() => null);
+          throw new Error(
+            errData?.detail || 'Inference engine is waiting for camera or model. Please check device status.'
+          );
+        }
+        const errorData = await res.json().catch(() => null);
+        throw new Error(errorData?.detail || 'Inference could not be completed.');
+      }
+
+      const pred: PredictResponse = await res.json();
+      // Cache latest prediction
+      offlineStorage.setCachedLatestPrediction(pred);
+      return pred;
+    } catch (err: any) {
+      const msg = err.message || '';
+      if (
+        msg.includes('Backend is unreachable') ||
+        msg.includes('timed out') ||
+        msg.includes('Failed to fetch')
+      ) {
         throw new Error(
-          "Backend connection required: You are viewing the cloud frontend on Vercel. Because the Python AI model & camera run on your hardware, open Settings (⚙️) to configure your Raspberry Pi / Cloudflare Tunnel URL, or test locally at http://localhost:5173."
+          'Raspberry Pi is currently offline. Connect your device to enable live disease detection.'
         );
       }
-      const errorData = await res.json().catch(() => null);
-      throw new Error(errorData?.detail || `Prediction failed (${res.status}): ${res.statusText}`);
+      throw err;
     }
-    return res.json();
   },
 
-  async getPredictions(limit: number = 20, plant?: string): Promise<PredictionRecord[]> {
-    const base = buildUrl('/api/predictions');
-    const url = new URL(base, window.location.origin);
-    url.searchParams.append('limit', limit.toString());
-    if (plant) {
-      url.searchParams.append('plant', plant);
+  async getPredictions(limit: number = 50, plant?: string): Promise<PredictionRecord[]> {
+    try {
+      const base = connectionManager.buildUrl('/api/predictions');
+      const url = new URL(base, typeof window !== 'undefined' ? window.location.origin : 'http://localhost');
+      url.searchParams.append('limit', limit.toString());
+      if (plant) {
+        url.searchParams.append('plant', plant);
+      }
+
+      const res = await connectionManager.safeFetch(
+        `${url.pathname}${url.search}`,
+        { method: 'GET' },
+        4000
+      );
+
+      if (res.ok) {
+        const records: PredictionRecord[] = await res.json();
+        if (Array.isArray(records) && records.length > 0) {
+          offlineStorage.setCachedPredictions(records);
+        }
+        return records;
+      }
+    } catch (e) {
+      // Graceful fallback to offline cache
     }
-    const res = await fetch(url.toString(), {
-      headers: getHeaders(),
-    });
-    if (!res.ok) throw new Error(`Failed to fetch predictions: ${res.statusText}`);
-    return res.json();
+
+    // Return cached records if network fails or backend is offline
+    const cached = offlineStorage.getCachedPredictions();
+    if (plant && plant !== 'all') {
+      return cached.filter((r) => r.plant.toLowerCase() === plant.toLowerCase());
+    }
+    return cached;
   },
 
   async getPredictionById(id: number): Promise<PredictionRecord> {
-    const res = await fetch(buildUrl(`/api/predictions/${id}`), {
-      headers: getHeaders(),
-    });
-    if (!res.ok) throw new Error(`Failed to fetch prediction ${id}`);
-    return res.json();
+    try {
+      const res = await connectionManager.safeFetch(`/api/predictions/${id}`, { method: 'GET' }, 4000);
+      if (res.ok) {
+        return await res.json();
+      }
+    } catch (e) {
+      // Try local cache
+    }
+
+    const cached = offlineStorage.getCachedPredictions().find((r) => r.id === id);
+    if (cached) return cached;
+    throw new Error(`Prediction record #${id} not found.`);
   },
 
   getStreamUrl(): string {
-    return `${buildUrl('/api/stream')}?t=${Date.now()}`;
+    const base = connectionManager.getApiBase();
+    if (!base) return '';
+    return `${connectionManager.buildUrl('/api/stream')}?t=${Date.now()}`;
   },
 
   getImageUrl(url?: string | null): string {
     if (!url) return '';
-    if (url.startsWith('http://') || url.startsWith('https://')) return url;
-    return buildUrl(url);
-  }
+    if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) {
+      return url;
+    }
+    return connectionManager.buildUrl(url);
+  },
 };

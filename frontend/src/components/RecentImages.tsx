@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
-import { Image as ImageIcon, Maximize2, X, Clock, Leaf, HardDrive } from 'lucide-react';
+import { Image as ImageIcon, Maximize2, X, Clock, Leaf } from 'lucide-react';
 import { PredictionRecord } from '../types';
 import { api } from '../api/client';
 
 interface RecentImagesProps {
   records: PredictionRecord[];
+  isRoverOnline?: boolean;
 }
 
-export const RecentImages: React.FC<RecentImagesProps> = ({ records }) => {
+export const RecentImages: React.FC<RecentImagesProps> = ({ records, isRoverOnline = false }) => {
   const [selectedRecord, setSelectedRecord] = useState<PredictionRecord | null>(null);
   const [failedImages, setFailedImages] = useState<Record<string | number, boolean>>({});
 
@@ -15,7 +16,7 @@ export const RecentImages: React.FC<RecentImagesProps> = ({ records }) => {
   const imageRecords = records.filter((r) => r.image_url || r.thumbnail_base64);
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden flex flex-col">
+    <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden flex flex-col">
       {/* Header */}
       <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
         <div className="flex items-center gap-2">
@@ -24,7 +25,9 @@ export const RecentImages: React.FC<RecentImagesProps> = ({ records }) => {
           </div>
           <div>
             <h3 className="text-sm font-bold text-slate-800">Recent Captured Images</h3>
-            <p className="text-[11px] text-slate-500">Field Rover Photo Log</p>
+            <p className="text-[11px] text-slate-500">
+              {isRoverOnline ? 'Field Rover Photo Log' : 'Archived Specimen Gallery'}
+            </p>
           </div>
         </div>
 
@@ -37,7 +40,7 @@ export const RecentImages: React.FC<RecentImagesProps> = ({ records }) => {
       <div className="p-5">
         {imageRecords.length === 0 ? (
           <div className="py-8 text-center text-xs text-slate-400">
-            No leaf photos captured yet. Run a prediction to store imagery.
+            No leaf photos captured yet. Field images will appear here once specimens are analyzed.
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
@@ -132,13 +135,10 @@ export const RecentImages: React.FC<RecentImagesProps> = ({ records }) => {
                   <Leaf className="w-10 h-10" />
                 </div>
                 <div>
-                  <h4 className="text-white font-bold text-sm">Image Stored Locally on Rover</h4>
+                  <h4 className="text-white font-bold text-sm">Image Stored in Archive</h4>
                   <p className="text-xs text-slate-400 mt-1 max-w-xs">
-                    File <code className="text-emerald-400 font-mono text-[11px]">{selectedRecord.image_filename || 'capture.jpg'}</code> was captured and archived in the rover's local storage.
+                    File <code className="text-emerald-400 font-mono text-[11px]">{selectedRecord.image_filename || 'capture.jpg'}</code> was recorded for this specimen.
                   </p>
-                </div>
-                <div className="text-[11px] text-amber-300/90 bg-amber-950/40 px-3 py-1.5 rounded-lg border border-amber-800/40">
-                  Connect the rover's Cloudflare Tunnel URL in Settings to view full-resolution imagery remotely.
                 </div>
               </div>
             )}

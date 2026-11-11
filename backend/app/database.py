@@ -98,7 +98,14 @@ def get_predictions(limit: int = 50, offset: int = 0, plant_filter: Optional[str
         query += " ORDER BY id DESC LIMIT ? OFFSET ?"
         params.extend([limit, offset])
         
-        cursor.execute(query, params)
+        try:
+            cursor.execute(query, params)
+        except sqlite3.OperationalError as e:
+            if "no such table" in str(e).lower():
+                init_db()
+                return []
+            raise
+
         rows = cursor.fetchall()
         results = []
         for row in rows:
@@ -147,3 +154,10 @@ def get_prediction_stats() -> Dict[str, Any]:
         }
     finally:
         conn.close()
+
+# Auto-initialize database schema on load
+try:
+    init_db()
+except Exception:
+    pass
+
