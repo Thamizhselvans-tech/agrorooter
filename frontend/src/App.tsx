@@ -116,7 +116,7 @@ export const App: React.FC = () => {
             percentage: Number((latest.confidence * 100).toFixed(2)),
             is_tomato: latest.is_tomato,
             tomato_specific_prediction: latest.tomato_top_predictions?.[0] || null,
-            top_3_predictions: latest.top_predictions.slice(0, 3),
+            top_3_predictions: (latest.top_predictions || []).slice(0, 3),
             top_3_tomato_predictions: latest.tomato_top_predictions?.slice(0, 3) || [],
             image_filename: latest.image_filename,
             image_url: latest.image_url,
@@ -360,9 +360,11 @@ export const App: React.FC = () => {
 
   // Statistics calculation for Dashboard
   const totalPredictionsCount = predictionHistory.length;
-  const healthyCount = predictionHistory.filter((r) => r.disease.toLowerCase() === 'healthy').length;
-  const diseasedCount = totalPredictionsCount - healthyCount;
-  const tomatoCount = predictionHistory.filter((r) => r.is_tomato).length;
+  const healthyCount = predictionHistory.filter(
+    (r) => ((r && r.disease) || '').toLowerCase() === 'healthy'
+  ).length;
+  const diseasedCount = Math.max(0, totalPredictionsCount - healthyCount);
+  const tomatoCount = predictionHistory.filter((r) => !!(r && r.is_tomato)).length;
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-slate-100/70 text-slate-900">

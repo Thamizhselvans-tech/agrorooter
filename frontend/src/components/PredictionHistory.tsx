@@ -32,8 +32,13 @@ export const PredictionHistory: React.FC<PredictionHistoryProps> = ({
   const [searchTerm, setSearchTerm] = useState<string>('');
 
   const filteredRecords = records.filter((rec) => {
+    if (!rec) return false;
+    const plantName = rec.plant || (rec.predicted_class ? rec.predicted_class.split('-')[0]?.trim() : 'Tomato') || 'Tomato';
+    const diseaseName = rec.disease || (rec.predicted_class ? rec.predicted_class.split('-').pop()?.trim() : 'Unknown') || 'Unknown';
+    const className = rec.predicted_class || 'tomato - healthy';
+
     const matchesPlant =
-      filterPlant === 'all' || rec.plant.toLowerCase() === filterPlant.toLowerCase();
+      filterPlant === 'all' || plantName.toLowerCase() === (filterPlant || '').toLowerCase();
     
     const sourceLower = (rec.source || '').toLowerCase();
     const isStandalone = sourceLower.includes('standalone') || sourceLower.includes('manual');
@@ -42,10 +47,12 @@ export const PredictionHistory: React.FC<PredictionHistoryProps> = ({
       (filterMode === 'standalone' && isStandalone) ||
       (filterMode === 'raspberry_pi' && !isStandalone);
 
+    const term = (searchTerm || '').trim().toLowerCase();
     const matchesSearch =
-      rec.predicted_class.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      rec.disease.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      rec.plant.toLowerCase().includes(searchTerm.toLowerCase());
+      !term ||
+      className.toLowerCase().includes(term) ||
+      diseaseName.toLowerCase().includes(term) ||
+      plantName.toLowerCase().includes(term);
 
     return matchesPlant && matchesMode && matchesSearch;
   });
@@ -267,19 +274,19 @@ export const PredictionHistory: React.FC<PredictionHistoryProps> = ({
 
                     <td className="py-3 px-4">
                       <span className="font-semibold text-slate-800 uppercase tracking-wider text-[10px] bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">
-                        {rec.plant}
+                        {rec.plant || 'Tomato'}
                       </span>
                     </td>
 
                     <td className="py-3 px-4">
-                      <div className="font-bold text-slate-900">{rec.disease}</div>
+                      <div className="font-bold text-slate-900">{rec.disease || 'Unknown'}</div>
                       <div className="text-[10px] text-slate-400 font-mono">
-                        {rec.predicted_class}
+                        {rec.predicted_class || 'tomato - healthy'}
                       </div>
                     </td>
 
                     <td className="py-3 px-4 font-mono font-bold text-emerald-700">
-                      {(rec.confidence * 100).toFixed(1)}%
+                      {((rec.confidence || 0) * 100).toFixed(1)}%
                     </td>
 
                     <td className="py-3 px-4">

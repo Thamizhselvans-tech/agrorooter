@@ -319,6 +319,10 @@ export const DISEASE_KNOWLEDGE_BASE: Record<string, DiseaseDetails> = {
  * Helper to retrieve disease details with intelligent fallback
  */
 export function getDiseaseDetails(className: string): DiseaseDetails {
+  if (!className || typeof className !== 'string') {
+    return DISEASE_KNOWLEDGE_BASE['tomato - healthy'];
+  }
+
   // Direct match
   if (DISEASE_KNOWLEDGE_BASE[className]) {
     return DISEASE_KNOWLEDGE_BASE[className];
@@ -331,14 +335,15 @@ export function getDiseaseDetails(className: string): DiseaseDetails {
   }
 
   // Search by disease name
+  const cleanLower = className.toLowerCase();
   for (const [key, details] of Object.entries(DISEASE_KNOWLEDGE_BASE)) {
-    if (key.toLowerCase().includes(className.toLowerCase())) {
+    if (key.toLowerCase().includes(cleanLower) || cleanLower.includes(key.toLowerCase())) {
       return details;
     }
   }
 
   // Fallback default
-  const isHealthy = className.toLowerCase().includes('healthy');
+  const isHealthy = cleanLower.includes('healthy');
   let plant = 'Crop';
   let disease = className;
   if (className.includes(' - ')) {

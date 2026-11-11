@@ -132,14 +132,19 @@ export function subscribeToFirestorePredictions(
             is_tomato: true,
           }));
 
+          const className = data.predicted_class || 'tomato - healthy';
+          const parts = className.split('-');
+          const fallbackPlant = parts[0]?.trim() || 'Tomato';
+          const fallbackDisease = parts.slice(1).join('-').trim() || 'Healthy';
+
           return {
             id: index + 1,
             timestamp: data.iso_timestamp || new Date().toISOString(),
-            predicted_class: data.predicted_class,
-            plant: data.plant,
-            disease: data.disease,
-            confidence: data.confidence,
-            is_tomato: !!data.is_tomato,
+            predicted_class: className,
+            plant: data.plant || fallbackPlant,
+            disease: data.disease || fallbackDisease,
+            confidence: typeof data.confidence === 'number' ? data.confidence : 0.9,
+            is_tomato: data.is_tomato !== undefined ? !!data.is_tomato : true,
             tomato_confidence: data.is_tomato ? data.confidence : null,
             top_predictions: topPreds,
             tomato_top_predictions: tomatoTopPreds,

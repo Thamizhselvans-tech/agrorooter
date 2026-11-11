@@ -146,7 +146,7 @@ export const api = {
     // Return cached records if network fails or backend is offline
     const cached = offlineStorage.getCachedPredictions();
     if (plant && plant !== 'all') {
-      return cached.filter((r) => r.plant.toLowerCase() === plant.toLowerCase());
+      return cached.filter((r) => ((r && r.plant) || '').toLowerCase() === (plant || '').toLowerCase());
     }
     return cached;
   },

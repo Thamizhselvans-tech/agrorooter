@@ -59,7 +59,7 @@ class StandaloneInferenceEngine {
           : labelsData.class_names || [];
 
         this.tomatoIndices = this.classNames
-          .map((name, idx) => (name.toLowerCase().startsWith('tomato') ? idx : -1))
+          .map((name, idx) => ((name || '').toLowerCase().startsWith('tomato') ? idx : -1))
           .filter((idx) => idx !== -1);
 
         // 2. Load ONNX model session
@@ -230,7 +230,7 @@ class StandaloneInferenceEngine {
       }
 
       const display_name = `${plant} ${disease}`;
-      const is_tomato = this.tomatoIndices.includes(idx) || plant.toLowerCase() === 'tomato';
+      const is_tomato = this.tomatoIndices.includes(idx) || (plant || '').toLowerCase() === 'tomato';
 
       return {
         class_name: rawLabel,

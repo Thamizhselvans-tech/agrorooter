@@ -45,7 +45,31 @@ export const offlineStorage = {
       const raw = localStorage.getItem(STORAGE_KEYS.CACHED_PREDICTIONS);
       if (!raw) return [];
       const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? parsed : [];
+      if (!Array.isArray(parsed)) return [];
+      return parsed
+        .filter((r) => r && typeof r === 'object')
+        .map((r, idx) => {
+          const className = r.predicted_class || 'tomato - healthy';
+          const parts = className.split('-');
+          const fallbackPlant = parts[0]?.trim() || 'Tomato';
+          const fallbackDisease = parts.slice(1).join('-').trim() || 'Healthy';
+          return {
+            id: r.id || idx + 1,
+            timestamp: r.timestamp || new Date().toISOString(),
+            predicted_class: className,
+            plant: r.plant || fallbackPlant,
+            disease: r.disease || fallbackDisease,
+            confidence: typeof r.confidence === 'number' ? r.confidence : 0.9,
+            is_tomato: r.is_tomato !== undefined ? !!r.is_tomato : true,
+            tomato_confidence: r.tomato_confidence ?? null,
+            top_predictions: Array.isArray(r.top_predictions) ? r.top_predictions : [],
+            tomato_top_predictions: Array.isArray(r.tomato_top_predictions) ? r.tomato_top_predictions : [],
+            image_filename: r.image_filename,
+            image_url: r.image_url,
+            thumbnail_base64: r.thumbnail_base64,
+            source: r.source || 'standalone_upload',
+          };
+        });
     } catch (e) {
       return [];
     }
@@ -67,7 +91,31 @@ export const offlineStorage = {
     try {
       const raw = localStorage.getItem(STORAGE_KEYS.CACHED_LATEST);
       if (!raw) return null;
-      return JSON.parse(raw);
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== 'object') return null;
+      const className = parsed.predicted_class || 'tomato - healthy';
+      const parts = className.split('-');
+      const fallbackPlant = parts[0]?.trim() || 'Tomato';
+      const fallbackDisease = parts.slice(1).join('-').trim() || 'Healthy';
+      return {
+        success: true,
+        predicted_class: className,
+        display_name: parsed.display_name || `${fallbackPlant} ${fallbackDisease}`,
+        plant: parsed.plant || fallbackPlant,
+        disease: parsed.disease || fallbackDisease,
+        confidence: typeof parsed.confidence === 'number' ? parsed.confidence : 0.9,
+        percentage: typeof parsed.percentage === 'number' ? parsed.percentage : 90,
+        is_tomato: parsed.is_tomato !== undefined ? !!parsed.is_tomato : true,
+        tomato_specific_prediction: parsed.tomato_specific_prediction || null,
+        top_3_predictions: Array.isArray(parsed.top_3_predictions) ? parsed.top_3_predictions : [],
+        top_3_tomato_predictions: Array.isArray(parsed.top_3_tomato_predictions) ? parsed.top_3_tomato_predictions : [],
+        image_filename: parsed.image_filename,
+        image_url: parsed.image_url,
+        thumbnail_base64: parsed.thumbnail_base64,
+        timestamp: parsed.timestamp || new Date().toISOString(),
+        inference_time_ms: parsed.inference_time_ms || 25,
+        disclaimer: parsed.disclaimer,
+      };
     } catch (e) {
       return null;
     }

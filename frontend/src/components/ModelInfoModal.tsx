@@ -110,7 +110,7 @@ export const ModelInfoModal: React.FC<ModelInfoModalProps> = ({ modelInfo }) => 
 
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 max-h-96 overflow-y-auto pr-1">
           {modelInfo.classes.map((cls, idx) => {
-            const isTomato = cls.toLowerCase().startsWith('tomato');
+            const isTomato = (cls || '').toLowerCase().startsWith('tomato');
             return (
               <div
                 key={cls}

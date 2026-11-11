@@ -91,7 +91,9 @@ export const LatestPrediction: React.FC<LatestPredictionProps> = ({
     );
   }
 
-  const isHealthy = prediction.disease.toLowerCase() === 'healthy';
+  const diseaseName = prediction.disease || (prediction.predicted_class ? prediction.predicted_class.split('-').pop()?.trim() : 'Unknown') || 'Unknown';
+  const plantName = prediction.plant || 'Tomato';
+  const isHealthy = diseaseName.toLowerCase() === 'healthy';
   const isTomato = prediction.is_tomato;
   const confidencePercent = prediction.percentage;
   const formattedTime = new Date(prediction.timestamp).toLocaleTimeString([], {
@@ -162,7 +164,7 @@ export const LatestPrediction: React.FC<LatestPredictionProps> = ({
             <div className="space-y-1">
               <div className="flex flex-wrap items-center gap-1.5">
                 <span className="px-2 py-0.5 rounded text-[11px] font-bold tracking-wide uppercase bg-emerald-100 text-emerald-800 border border-emerald-200/80">
-                  {prediction.plant}
+                  {plantName}
                 </span>
 
                 {isTomato && (
@@ -185,7 +187,7 @@ export const LatestPrediction: React.FC<LatestPredictionProps> = ({
 
               {/* Disease Name */}
               <h4 className="text-xl font-extrabold text-slate-900 tracking-tight leading-tight">
-                {prediction.disease}
+                {diseaseName}
               </h4>
 
               <div className="flex items-center gap-2 text-xs text-slate-500">

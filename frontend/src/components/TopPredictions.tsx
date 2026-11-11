@@ -30,8 +30,8 @@ export const TopPredictions: React.FC<TopPredictionsProps> = ({ prediction }) =>
 
   const items: ClassPrediction[] =
     viewMode === 'overall'
-      ? prediction.top_3_predictions
-      : prediction.top_3_tomato_predictions;
+      ? (prediction.top_3_predictions || [])
+      : (prediction.top_3_tomato_predictions || []);
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden flex flex-col">
