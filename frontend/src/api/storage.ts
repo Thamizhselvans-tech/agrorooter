@@ -5,7 +5,23 @@ const STORAGE_KEYS = {
   CACHED_PREDICTIONS: 'AGRI_ROVER_CACHED_PREDICTIONS',
   CACHED_LATEST: 'AGRI_ROVER_CACHED_LATEST_PRED',
   PREDICTION_MODE: 'AGRI_ROVER_PREDICTION_MODE',
+  CACHE_VERSION: 'AGRI_ROVER_STORAGE_CLEAN_VER',
 };
+
+const CURRENT_CACHE_VERSION = 'v2_clean_tomato_rover';
+
+// Purge legacy test artifacts (e.g. old Mango Anthracnose data)
+try {
+  if (typeof window !== 'undefined') {
+    if (localStorage.getItem(STORAGE_KEYS.CACHE_VERSION) !== CURRENT_CACHE_VERSION) {
+      localStorage.removeItem(STORAGE_KEYS.CACHED_PREDICTIONS);
+      localStorage.removeItem(STORAGE_KEYS.CACHED_LATEST);
+      localStorage.setItem(STORAGE_KEYS.CACHE_VERSION, CURRENT_CACHE_VERSION);
+    }
+  }
+} catch (e) {
+  // Storage access might be restricted
+}
 
 export const offlineStorage = {
   getApiBase(): string {
@@ -158,5 +174,15 @@ export const offlineStorage = {
     const updated = [finalRecord, ...list.filter((r) => r.id !== finalRecord.id)].slice(0, 100);
     this.setCachedPredictions(updated);
     return updated;
+  },
+
+  clearHistoryAndImages(): void {
+    if (typeof window === 'undefined') return;
+    try {
+      localStorage.removeItem(STORAGE_KEYS.CACHED_PREDICTIONS);
+      localStorage.removeItem(STORAGE_KEYS.CACHED_LATEST);
+    } catch (e) {
+      console.warn('Failed to clear history from storage:', e);
+    }
   },
 };

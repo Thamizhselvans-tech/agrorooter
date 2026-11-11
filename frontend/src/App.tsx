@@ -102,31 +102,6 @@ export const App: React.FC = () => {
       const records = await api.getPredictions(50);
       if (records && records.length > 0) {
         setPredictionHistory(records);
-        // If we don't have a latest prediction yet, reconstruct from latest history record
-        setLatestPrediction((prev) => {
-          if (prev) return prev;
-          const latest = records[0];
-          return {
-            success: true,
-            predicted_class: latest.predicted_class,
-            display_name: `${latest.plant} ${latest.disease}`,
-            plant: latest.plant,
-            disease: latest.disease,
-            confidence: latest.confidence,
-            percentage: Number((latest.confidence * 100).toFixed(2)),
-            is_tomato: latest.is_tomato,
-            tomato_specific_prediction: latest.tomato_top_predictions?.[0] || null,
-            top_3_predictions: (latest.top_predictions || []).slice(0, 3),
-            top_3_tomato_predictions: latest.tomato_top_predictions?.slice(0, 3) || [],
-            image_filename: latest.image_filename,
-            image_url: latest.image_url,
-            thumbnail_base64: latest.thumbnail_base64,
-            timestamp: latest.timestamp,
-            inference_time_ms: 22,
-            disclaimer:
-              'AI predictions are estimates based on computer vision models and do not substitute for certified agricultural inspection.',
-          };
-        });
       }
     } catch (e) {
       // Handled inside api.getPredictions()
@@ -179,10 +154,10 @@ export const App: React.FC = () => {
   // Real-time Cloud Firestore prediction sync
   useEffect(() => {
     const unsubscribe = subscribeToFirestorePredictions((records) => {
+      // Avoid auto-populating legacy test records into empty state
       if (records && records.length > 0) {
         setPredictionHistory((prev) => {
-          if (prev.length === 0) {
-            offlineStorage.setCachedPredictions(records);
+          if (prev.length > 0) {
             return records;
           }
           return prev;
@@ -365,6 +340,13 @@ export const App: React.FC = () => {
   ).length;
   const diseasedCount = Math.max(0, totalPredictionsCount - healthyCount);
   const tomatoCount = predictionHistory.filter((r) => !!(r && r.is_tomato)).length;
+
+  const handleClearHistory = () => {
+    offlineStorage.clearHistoryAndImages();
+    setPredictionHistory([]);
+    setLatestPrediction(null);
+    setUserNotice({ message: 'All prediction records and pictures have been cleared.' });
+  };
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-slate-100/70 text-slate-900">
@@ -587,12 +569,6 @@ export const App: React.FC = () => {
                     }
                   />
                 )}
-
-                {/* Bottom Row: Recent Captured Images Gallery */}
-                <RecentImages
-                  records={predictionHistory}
-                  isRoverOnline={systemStatus.isRoverOnline}
-                />
               </div>
             )}
 
@@ -602,6 +578,7 @@ export const App: React.FC = () => {
                 onRefresh={handleRefresh}
                 isLoading={isRefreshing}
                 isRoverOnline={systemStatus.isRoverOnline}
+                onClearHistory={handleClearHistory}
               />
             )}
 
@@ -619,10 +596,7 @@ export const App: React.FC = () => {
                   connectionManager.checkConnection({ force: true });
                   refreshPredictions();
                 }}
-                onClearHistory={() => {
-                  setPredictionHistory([]);
-                  setLatestPrediction(null);
-                }}
+                onClearHistory={handleClearHistory}
               />
             )}
           </main>

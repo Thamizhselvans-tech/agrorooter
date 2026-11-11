@@ -9,7 +9,8 @@ import {
   Inbox,
   Laptop,
   Radio,
-  FileDown
+  FileDown,
+  Trash2
 } from 'lucide-react';
 import { PredictionRecord } from '../types';
 import { api } from '../api/client';
@@ -19,6 +20,7 @@ interface PredictionHistoryProps {
   onRefresh: () => void;
   isLoading: boolean;
   isRoverOnline?: boolean;
+  onClearHistory?: () => void;
 }
 
 export const PredictionHistory: React.FC<PredictionHistoryProps> = ({
@@ -26,6 +28,7 @@ export const PredictionHistory: React.FC<PredictionHistoryProps> = ({
   onRefresh,
   isLoading,
   isRoverOnline = false,
+  onClearHistory,
 }) => {
   const [filterPlant, setFilterPlant] = useState<string>('all');
   const [filterMode, setFilterMode] = useState<'all' | 'standalone' | 'raspberry_pi'>('all');
@@ -189,6 +192,18 @@ export const PredictionHistory: React.FC<PredictionHistoryProps> = ({
             <FileDown className="w-3.5 h-3.5 text-emerald-600" />
             <span className="hidden sm:inline">Export</span>
           </button>
+
+          {onClearHistory && (
+            <button
+              onClick={onClearHistory}
+              disabled={records.length === 0}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 text-rose-700 hover:text-rose-800 bg-rose-50 hover:bg-rose-100/70 rounded-lg border border-rose-200 transition-colors shadow-2xs disabled:opacity-40 text-xs font-semibold cursor-pointer"
+              title="Clear all history"
+            >
+              <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+              <span className="hidden sm:inline">Clear History</span>
+            </button>
+          )}
 
           <button
             onClick={onRefresh}
