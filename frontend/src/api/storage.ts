@@ -4,6 +4,7 @@ const STORAGE_KEYS = {
   API_BASE: 'AGRI_ROVER_API_BASE',
   CACHED_PREDICTIONS: 'AGRI_ROVER_CACHED_PREDICTIONS',
   CACHED_LATEST: 'AGRI_ROVER_CACHED_LATEST_PRED',
+  PREDICTION_MODE: 'AGRI_ROVER_PREDICTION_MODE',
 };
 
 export const offlineStorage = {
@@ -83,5 +84,31 @@ export const offlineStorage = {
     } catch (e) {
       console.warn('Failed to cache latest prediction in localStorage:', e);
     }
+  },
+
+  getPredictionMode(): 'standalone' | 'raspberry_pi' {
+    if (typeof window === 'undefined') return 'standalone';
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.PREDICTION_MODE);
+      if (saved === 'raspberry_pi') return 'raspberry_pi';
+    } catch (e) {}
+    return 'standalone';
+  },
+
+  setPredictionMode(mode: 'standalone' | 'raspberry_pi'): void {
+    if (typeof window === 'undefined') return;
+    try {
+      localStorage.setItem(STORAGE_KEYS.PREDICTION_MODE, mode);
+    } catch (e) {}
+  },
+
+  addPredictionRecord(record: PredictionRecord): PredictionRecord[] {
+    const list = this.getCachedPredictions();
+    // Prepend new record, ensure unique ID
+    const nextId = list.length > 0 ? Math.max(...list.map((r) => r.id || 0)) + 1 : 1;
+    const finalRecord = { ...record, id: record.id || nextId };
+    const updated = [finalRecord, ...list.filter((r) => r.id !== finalRecord.id)].slice(0, 100);
+    this.setCachedPredictions(updated);
+    return updated;
   },
 };

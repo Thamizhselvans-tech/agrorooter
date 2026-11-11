@@ -7,13 +7,17 @@ import {
   Zap, 
   Maximize2, 
   X,
-  Layers
+  Layers,
+  Cpu,
+  Radio,
+  Laptop
 } from 'lucide-react';
-import { PredictResponse } from '../types';
+import { PredictResponse, PredictionMode } from '../types';
 import { api } from '../api/client';
 
 interface LatestPredictionProps {
   prediction: PredictResponse | null;
+  predictionMode: PredictionMode;
   modelLoaded: boolean;
   isRoverConnected: boolean;
   isInferencing: boolean;
@@ -21,6 +25,7 @@ interface LatestPredictionProps {
 
 export const LatestPrediction: React.FC<LatestPredictionProps> = ({
   prediction,
+  predictionMode,
   modelLoaded,
   isRoverConnected,
   isInferencing,
@@ -28,41 +33,59 @@ export const LatestPrediction: React.FC<LatestPredictionProps> = ({
   const [modalImageOpen, setModalImageOpen] = useState(false);
   const [imageFailed, setImageFailed] = useState(false);
 
-  // If no prediction exists and rover is offline
-  if (!prediction && !isRoverConnected) {
-    return (
-      <div className="bg-white rounded-2xl border border-slate-200/80 p-8 shadow-xs flex flex-col items-center justify-center text-center space-y-3">
-        <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-500 border border-slate-200 shadow-inner">
-          <Layers className="w-7 h-7" />
-        </div>
-        <div>
-          <h3 className="text-sm font-bold text-slate-800">Waiting for AI Model</h3>
-          <p className="text-xs text-slate-500 mt-1 max-w-xs leading-relaxed">
-            Raspberry Pi is currently offline. Connect your device to enable live disease detection.
-          </p>
-        </div>
-        <div className="text-[11px] text-slate-500 font-mono bg-slate-100 px-2.5 py-1 rounded-full border border-slate-200">
-          Device Offline
-        </div>
-      </div>
-    );
-  }
-
-  // If rover is connected but no prediction has been captured yet
+  // If no prediction exists yet
   if (!prediction) {
+    if (predictionMode === 'standalone') {
+      return (
+        <div className="bg-white rounded-2xl border border-slate-200/80 p-8 shadow-xs flex flex-col items-center justify-center text-center space-y-3">
+          <div className="w-14 h-14 rounded-2xl bg-emerald-50 flex items-center justify-center text-emerald-600 border border-emerald-100 shadow-inner">
+            <Leaf className="w-7 h-7" />
+          </div>
+          <div>
+            <h3 className="text-sm font-bold text-slate-800">Awaiting Tomato Specimen</h3>
+            <p className="text-xs text-slate-500 mt-1 max-w-xs leading-relaxed">
+              Upload a leaf photo or start your laptop webcam to run instant in-browser AI diagnosis.
+            </p>
+          </div>
+          <div className="text-[11px] text-emerald-700 font-mono bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200 font-semibold">
+            Mode A: Standalone AI Ready
+          </div>
+        </div>
+      );
+    }
+
+    if (!isRoverConnected) {
+      return (
+        <div className="bg-white rounded-2xl border border-slate-200/80 p-8 shadow-xs flex flex-col items-center justify-center text-center space-y-3">
+          <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-500 border border-slate-200 shadow-inner">
+            <Layers className="w-7 h-7" />
+          </div>
+          <div>
+            <h3 className="text-sm font-bold text-slate-800">Waiting for Raspberry Pi</h3>
+            <p className="text-xs text-slate-500 mt-1 max-w-xs leading-relaxed">
+              Raspberry Pi is currently offline. Switch to Standalone Mode above to analyze leaves immediately on your computer.
+            </p>
+          </div>
+          <div className="text-[11px] text-slate-500 font-mono bg-slate-100 px-2.5 py-1 rounded-full border border-slate-200">
+            RPi Standby
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="bg-white rounded-2xl border border-slate-200/80 p-8 shadow-xs flex flex-col items-center justify-center text-center space-y-3">
         <div className="w-14 h-14 rounded-2xl bg-emerald-50 flex items-center justify-center text-emerald-600 border border-emerald-100 shadow-inner">
-          <Leaf className="w-7 h-7" />
+          <Radio className="w-7 h-7" />
         </div>
         <div>
-          <h3 className="text-sm font-bold text-slate-800">Awaiting Leaf Specimen</h3>
+          <h3 className="text-sm font-bold text-slate-800">Awaiting RPi Camera Frame</h3>
           <p className="text-xs text-slate-500 mt-1 max-w-xs leading-relaxed">
-            Start the camera and enable Auto Capture, or click 'Capture Now' to run real-time inference on a leaf.
+            Click 'Capture Now' or enable Auto Capture in the live camera feed to diagnose a leaf.
           </p>
         </div>
-        <div className="text-[11px] text-slate-400 font-mono">
-          Model: MobileNetV2 (29 Classes)
+        <div className="text-[11px] text-emerald-700 font-mono bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200 font-semibold">
+          Mode B: RPi Connected
         </div>
       </div>
     );
@@ -90,22 +113,21 @@ export const LatestPrediction: React.FC<LatestPredictionProps> = ({
           <div>
             <h3 className="text-sm font-bold text-slate-800">Latest Prediction</h3>
             <p className="text-[11px] text-slate-500">
-              {isRoverConnected && modelLoaded
-                ? 'Real-Time Edge Inference'
-                : 'Archived Specimen Record'}
+              {predictionMode === 'standalone'
+                ? 'Client-Side ONNX Neural Network'
+                : 'Edge Inference via Raspberry Pi 4'}
             </p>
           </div>
         </div>
 
-        {/* Status Pill */}
-        <div className="flex items-center gap-2 text-xs font-mono text-slate-500 bg-white px-2.5 py-1 rounded-md border border-slate-200 shadow-2xs">
-          {!isRoverConnected ? (
-            <span className="text-[10px] text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded font-sans font-semibold border border-slate-200">
-              Offline Cache
-            </span>
-          ) : (
-            <span>{prediction.inference_time_ms} ms</span>
-          )}
+        {/* Inference Latency & Mode Pill */}
+        <div className="flex items-center gap-1.5 text-xs font-mono text-slate-500 bg-white px-2.5 py-1 rounded-md border border-slate-200 shadow-2xs">
+          <span className="text-[10px] text-emerald-700 font-semibold bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+            {prediction.inference_time_ms} ms
+          </span>
+          <span className="text-[10px] text-slate-500 hidden sm:inline">
+            {predictionMode === 'standalone' ? 'WASM' : 'RPi'}
+          </span>
         </div>
       </div>
 
@@ -157,7 +179,7 @@ export const LatestPrediction: React.FC<LatestPredictionProps> = ({
                   }`}
                 >
                   {isHealthy ? <CheckCircle className="w-3 h-3" /> : <ShieldAlert className="w-3 h-3" />}
-                  {isHealthy ? 'Healthy Plant' : 'Pathogen Detected'}
+                  {isHealthy ? 'Healthy Specimen' : 'Pathogen Detected'}
                 </span>
               </div>
 
@@ -215,7 +237,7 @@ export const LatestPrediction: React.FC<LatestPredictionProps> = ({
           >
             <button 
               onClick={() => setModalImageOpen(false)}
-              className="absolute top-4 right-4 z-10 p-1.5 rounded-full bg-black/60 text-white hover:bg-black/90 transition-colors"
+              className="absolute top-4 right-4 z-10 p-1.5 rounded-full bg-black/60 text-white hover:bg-black/90 transition-colors cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
@@ -234,7 +256,7 @@ export const LatestPrediction: React.FC<LatestPredictionProps> = ({
                 <div>
                   <h4 className="text-white font-bold text-sm">Specimen Saved in Archive</h4>
                   <p className="text-xs text-slate-400 mt-1 max-w-xs">
-                    File <code className="text-emerald-400 font-mono text-[11px]">{prediction.image_filename || 'capture.jpg'}</code> is stored in local archives.
+                    Captured specimen for <code className="text-emerald-400 font-mono text-[11px]">{prediction.display_name}</code>
                   </p>
                 </div>
               </div>

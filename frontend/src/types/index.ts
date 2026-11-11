@@ -81,6 +81,8 @@ export interface PredictionRecord {
   source: string;
 }
 
+export type PredictionMode = 'standalone' | 'raspberry_pi';
+
 export type ConnectionState = 'connected' | 'offline' | 'checking';
 
 export interface SystemConnectionStatus {
