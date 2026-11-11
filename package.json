@@ -1,0 +1,12 @@
+{
+  "name": "agri-rover-ai-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Agri Rover AI - Tomato Disease Detection & Agricultural IoT Monorepo",
+  "scripts": {
+    "build": "cd frontend && npm install && npm run build",
+    "dev": "cd frontend && npm run dev",
+    "preview": "cd frontend && npm run preview",
+    "test": "cd frontend && node ./scripts/test_dual_mode_ai.mjs"
+  }
+}
